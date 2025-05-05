@@ -8,7 +8,6 @@
 #include "jh7110.dtsi"
 #include "jh7110-pinfunc.h"
 #include "gpio.h"
-#include "starfive-jh7110-pinfunc.h"
 
 / {
 	aliases {
@@ -234,7 +233,7 @@
 				regulator-always-on;
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1540000>;
-				regulator-name = "vdd_cpu";
+				regulator-name = "vdd-cpu";
 			};
 
 			emmc_vdd: aldo4 {
@@ -351,6 +350,12 @@
 &spi0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi0_pins>;
+
+	spi_dev0: spi@0 {
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+	};
 };
 
 &syscrg {
