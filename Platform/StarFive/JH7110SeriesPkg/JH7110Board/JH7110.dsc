@@ -364,12 +364,24 @@
  #
   # DW MMC/SD card controller
   #
-  gDesignWareTokenSpaceGuid.PcdDwEmmcDxeBaseAddress|0x16010000
-  gDesignWareTokenSpaceGuid.PcdDwSdDxeBaseAddress|0x16020000
-  gDesignWareTokenSpaceGuid.PcdDwEmmcDxeClockFrequencyInHz|198000000
-  gDesignWareTokenSpaceGuid.PcdDwEmmcDxeMaxClockFreqInHz|198000000
-  gDesignWareTokenSpaceGuid.PcdDwPermitObsoleteDrivers|TRUE
-  gDesignWareTokenSpaceGuid.PcdDwEmmcDxeFifoDepth|32
+# TODO:
+#
+# Figure out why MmcDxe fails to work and break EDK2.
+#
+# EDK2 Log:
+#
+# Card should be MMC  
+# ...
+# Card should be MMC
+# MmcIdentificationMode(): No Card  
+# InitializeMmcDevice(): Error in Identification Mode, Status=No Media 
+  
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeBaseAddress|0x16010000
+  #gDesignWareTokenSpaceGuid.PcdDwSdDxeBaseAddress|0x16020000
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeClockFrequencyInHz|198000000
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeMaxClockFreqInHz|198000000
+  #gDesignWareTokenSpaceGuid.PcdDwPermitObsoleteDrivers|TRUE
+  #gDesignWareTokenSpaceGuid.PcdDwEmmcDxeFifoDepth|32
 
   #SPI
   gJH7110TokenSpaceGuid.PcdSpiFlashRegBase|0x13010000
@@ -555,15 +567,26 @@
   #
   # sdio/mmc support
   #
-  EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
-  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwEmmcDxe.inf {
-    <BuildOptions>
-      GCC:*_*_*_CC_FLAGS       = -DCONFIG_DWEMMC
-  }
-  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwSdmmcDxe.inf {
-    <BuildOptions>
-      GCC:*_*_*_CC_FLAGS       = -DCONFIG_DWSDMMC
-  }
+# TODO:
+#
+# Figure out why MmcDxe fails to work and break EDK2.
+#
+# EDK2 Log:
+#
+# Card should be MMC  
+# ...
+# Card should be MMC
+# MmcIdentificationMode(): No Card  
+# InitializeMmcDevice(): Error in Identification Mode, Status=No Media 
+  #EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
+  #Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwEmmcDxe.inf {
+  #  <BuildOptions>
+  #    GCC:*_*_*_CC_FLAGS       = -DCONFIG_DWEMMC
+  #}
+  #Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwSdmmcDxe.inf {
+  #  <BuildOptions>
+  #    GCC:*_*_*_CC_FLAGS       = -DCONFIG_DWSDMMC
+  #}
 
    #
    # PCIe support

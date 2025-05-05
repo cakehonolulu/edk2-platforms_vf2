@@ -209,9 +209,20 @@ INF  ShellPkg/Application/Shell/Shell.inf
 #
 # SDIO/MMC support
 #
-INF  EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
-INF  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwEmmcDxe.inf
-INF  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwSdmmcDxe.inf
+# TODO:
+#
+# Figure out why MmcDxe fails to work and break EDK2.
+#
+# EDK2 Log:
+#
+# Card should be MMC
+# ...
+# Card should be MMC
+# MmcIdentificationMode(): No Card  
+# InitializeMmcDevice(): Error in Identification Mode, Status=No Media  
+#INF  EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
+#INF  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwEmmcDxe.inf
+#INF  Silicon/Synopsys/DesignWare/Drivers/DwEmmcDxe/DwSdmmcDxe.inf
 
 #
 # PCIe support
