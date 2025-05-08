@@ -6,7 +6,7 @@
 # INF files to generate AutoGen.c and AutoGen.h files
 # for the build infrastructure.
 #
-# Copyright (c) 2020 - 2021, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2020 - 2023, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -59,10 +59,7 @@
 #
 # Feature DXE Components
 #
-
-# @todo: Change below line to [Components.$(DXE_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed.
-[Components.X64]
+[Components.$(DXE_ARCH)]
   #####################################
   # User Authentication Feature Package
   #####################################
@@ -75,3 +72,5 @@
   UserAuthFeaturePkg/UserAuthenticationDxeSmm/UserAuthenticationDxe.inf
   UserAuthFeaturePkg/UserAuthenticationDxeSmm/UserAuthentication2Dxe.inf
   UserAuthFeaturePkg/UserAuthenticationDxeSmm/UserAuthenticationSmm.inf
+  UserAuthFeaturePkg/UserAuthenticationDxeSmm/UserAuthenticationStandaloneMm.inf
+  UserAuthFeaturePkg/UserAuthenticationDxeSmm/UserAuthenticationStandaloneMmDxe.inf

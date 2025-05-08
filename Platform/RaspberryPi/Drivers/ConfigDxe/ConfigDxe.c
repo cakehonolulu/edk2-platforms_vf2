@@ -298,6 +298,16 @@ SetupVariables (
         Status = PcdSet32S (PcdXhciPci, 1);
         ASSERT_EFI_ERROR (Status);
       }
+
+      Size = sizeof (UINT32);
+      Status = gRT->GetVariable (L"XhciReload",
+                                 &gConfigDxeFormSetGuid,
+                                 NULL, &Size, &Var32);
+      if (EFI_ERROR (Status)) {
+        Status = PcdSet32S (PcdXhciReload, PcdGet32 (PcdXhciReload));
+        ASSERT_EFI_ERROR (Status);
+      }
+
     }
   } else {
     /*
@@ -418,7 +428,7 @@ SetupVariables (
     //
     Status = mFwProtocol->GetMacAddress (mMacAddress.Addr);
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_WARN, "%a: failed to retrieve MAC address\n", __FUNCTION__));
+      DEBUG ((DEBUG_WARN, "%a: failed to retrieve MAC address\n", __func__));
     }
   }
 

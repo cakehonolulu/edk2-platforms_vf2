@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2020 - 2021, Ampere Computing LLC. All rights reserved.<BR>
+  Copyright (c) 2020 - 2024, Ampere Computing LLC. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -22,16 +22,17 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Library/SystemFirmwareInterfaceLib.h>
 #include <Protocol/RealTimeClock.h>
 
 #include "PCF85063.h"
 
-#define TICKS_PER_SEC     (ArmGenericTimerGetTimerFreq ())
+#define TICKS_PER_SEC  (ArmGenericTimerGetTimerFreq ())
 
-STATIC EFI_EVENT          mVirtualAddressChangeEvent = NULL;
+STATIC EFI_EVENT  mVirtualAddressChangeEvent = NULL;
 
-STATIC UINT64             mLastSavedSystemCount = 0;
-STATIC UINT64             mLastSavedTimeEpoch = 0;
+STATIC UINT64  mLastSavedSystemCount = 0;
+STATIC UINT64  mLastSavedTimeEpoch   = 0;
 
 /**
  * Returns the current time and date information, and the time-keeping capabilities
@@ -49,14 +50,14 @@ STATIC UINT64             mLastSavedTimeEpoch = 0;
 EFI_STATUS
 EFIAPI
 LibGetTime (
-  OUT EFI_TIME                *Time,
-  OUT EFI_TIME_CAPABILITIES   *Capabilities
+  OUT EFI_TIME               *Time,
+  OUT EFI_TIME_CAPABILITIES  *Capabilities
   )
 {
-  EFI_STATUS    Status;
-  UINT64        CurrentSystemCount;
-  UINT64        TimeElapsed;
-  UINTN         EpochSeconds;
+  EFI_STATUS  Status;
+  UINT64      CurrentSystemCount;
+  UINT64      TimeElapsed;
+  UINTN       EpochSeconds;
 
   if ((mLastSavedTimeEpoch == 0) || EfiAtRuntime ()) {
     Status = PlatformGetTime (Time);
@@ -64,21 +65,22 @@ LibGetTime (
       // Failed to read platform RTC so create fake time
       Time->Second = 0;
       Time->Minute = 0;
-      Time->Hour = 10;
-      Time->Day = 1;
-      Time->Month = 1;
-      Time->Year = 2017;
+      Time->Hour   = 10;
+      Time->Day    = 1;
+      Time->Month  = 1;
+      Time->Year   = 2017;
     }
 
     EpochSeconds = EfiTimeToEpoch (Time);
     if (!EfiAtRuntime ()) {
-      mLastSavedTimeEpoch = EpochSeconds;
+      mLastSavedTimeEpoch   = EpochSeconds;
       mLastSavedSystemCount = ArmGenericTimerGetSystemCount ();
+      MailboxMsgDateConfig (Time);
     }
   } else {
     CurrentSystemCount = ArmGenericTimerGetSystemCount ();
     if (CurrentSystemCount >= mLastSavedSystemCount) {
-      TimeElapsed = (CurrentSystemCount - mLastSavedSystemCount) / MultU64x32 (1, TICKS_PER_SEC);
+      TimeElapsed  = (CurrentSystemCount - mLastSavedSystemCount) / MultU64x32 (1, TICKS_PER_SEC);
       EpochSeconds = mLastSavedTimeEpoch + TimeElapsed;
     } else {
       // System counter overflow 64 bits
@@ -116,11 +118,11 @@ LibGetTime (
 EFI_STATUS
 EFIAPI
 LibSetTime (
-  IN EFI_TIME                *Time
+  IN EFI_TIME  *Time
   )
 {
-  EFI_STATUS    Status;
-  UINTN         EpochSeconds;
+  EFI_STATUS  Status;
+  UINTN       EpochSeconds;
 
   EpochSeconds = EfiTimeToEpoch (Time);
 
@@ -141,8 +143,10 @@ LibSetTime (
     return Status;
   }
 
+  MailboxMsgDateConfig (Time);
+
   if (!EfiAtRuntime ()) {
-    mLastSavedTimeEpoch = EpochSeconds;
+    mLastSavedTimeEpoch   = EpochSeconds;
     mLastSavedSystemCount = ArmGenericTimerGetSystemCount ();
   }
 
@@ -163,9 +167,9 @@ LibSetTime (
 EFI_STATUS
 EFIAPI
 LibGetWakeupTime (
-  OUT BOOLEAN     *Enabled,
-  OUT BOOLEAN     *Pending,
-  OUT EFI_TIME    *Time
+  OUT BOOLEAN   *Enabled,
+  OUT BOOLEAN   *Pending,
+  OUT EFI_TIME  *Time
   )
 {
   return EFI_UNSUPPORTED;
@@ -186,8 +190,8 @@ LibGetWakeupTime (
 EFI_STATUS
 EFIAPI
 LibSetWakeupTime (
-  IN BOOLEAN      Enabled,
-  OUT EFI_TIME    *Time
+  IN BOOLEAN    Enabled,
+  OUT EFI_TIME  *Time
   )
 {
   return EFI_UNSUPPORTED;
@@ -201,11 +205,12 @@ LibSetWakeupTime (
   @param[in]    Event   The Event that is being processed
   @param[in]    Context Event Context
 **/
+STATIC
 VOID
 EFIAPI
-LibRtcVirtualNotifyEvent (
-  IN EFI_EVENT        Event,
-  IN VOID             *Context
+VirtualNotifyEvent (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
   )
 {
   //
@@ -229,16 +234,18 @@ LibRtcVirtualNotifyEvent (
 EFI_STATUS
 EFIAPI
 LibRtcInitialize (
-  IN EFI_HANDLE                            ImageHandle,
-  IN EFI_SYSTEM_TABLE                      *SystemTable
+  IN EFI_HANDLE        ImageHandle,
+  IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  EFI_STATUS    Status;
+  EFI_STATUS  Status;
 
   Status = PlatformInitialize ();
   if (EFI_ERROR (Status)) {
     return Status;
   }
+
+  MailboxMsgDateConfigRuntimeSetup ();
 
   //
   // Register for the virtual address change event
@@ -246,7 +253,7 @@ LibRtcInitialize (
   Status = gBS->CreateEventEx (
                   EVT_NOTIFY_SIGNAL,
                   TPL_NOTIFY,
-                  LibRtcVirtualNotifyEvent,
+                  VirtualNotifyEvent,
                   NULL,
                   &gEfiEventVirtualAddressChangeGuid,
                   &mVirtualAddressChangeEvent

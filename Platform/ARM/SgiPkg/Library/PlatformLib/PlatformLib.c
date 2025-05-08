@@ -1,6 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2018 - 2022, Arm Limited. All rights reserved.
+*  Copyright (c) 2018 - 2024, Arm Limited. All rights reserved.
 *
 *  SPDX-License-Identifier: BSD-2-Clause-Patent
 *
@@ -78,6 +78,18 @@ STATIC CONST SGI_PRODUCT_ID_LOOKUP SgiProductIdLookup[] = {
     RD_N2_PART_NUM,
     RD_N2_CONF_ID,
     1
+  },
+  {
+    RdV2,
+    RD_V2_PART_NUM,
+    RD_V2_CONF_ID,
+    0
+  },
+  {
+    RdV3,
+    RD_V3_PART_NUM,
+    RD_V3_CONF_ID,
+    0
   },
 };
 

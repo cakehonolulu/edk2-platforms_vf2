@@ -89,7 +89,7 @@ typedef EFI_STATUS (*CM_OBJECT_HANDLER_PROC) (
 
 /** The number of ACPI tables to install
 */
-#define PLAT_ACPI_TABLE_COUNT       9
+#define PLAT_ACPI_TABLE_COUNT       10
 
 /** The number of platform generic timer blocks
 */
@@ -114,11 +114,11 @@ typedef struct PlatformRepositoryInfo {
 
 #ifdef HEADLESS_PLATFORM
   /// Fixed feature flag information
-  CM_ARM_FIXED_FEATURE_FLAGS            FixedFeatureFlags;
+  CM_ARCH_COMMON_FIXED_FEATURE_FLAGS    FixedFeatureFlags;
 #endif
 
   /// Power management profile information
-  CM_ARM_POWER_MANAGEMENT_PROFILE_INFO  PmProfileInfo;
+  CM_ARCH_COMMON_POWER_MANAGEMENT_PROFILE_INFO  PmProfileInfo;
 
   /// GIC CPU interface information
   CM_ARM_GICC_INFO                      GicCInfo[PLAT_CPU_COUNT];
@@ -144,10 +144,10 @@ typedef struct PlatformRepositoryInfo {
   /** Serial port information for the
       serial port console redirection port
   */
-  CM_ARM_SERIAL_PORT_INFO               SpcrSerialPort;
+  CM_ARCH_COMMON_SERIAL_PORT_INFO       SpcrSerialPort;
 
   /// Serial port information for the DBG2 UART port
-  CM_ARM_SERIAL_PORT_INFO               DbgSerialPort;
+  CM_ARCH_COMMON_SERIAL_PORT_INFO       DbgSerialPort;
 
   /// GIC ITS information
   CM_ARM_GIC_ITS_INFO                   GicItsInfo;
@@ -169,7 +169,9 @@ typedef struct PlatformRepositoryInfo {
   CM_ARM_ID_MAPPING                     DeviceIdMapping[2];
 
   /// PCI configuration space information
-  CM_ARM_PCI_CONFIG_SPACE_INFO          PciConfigInfo;
+  CM_ARCH_COMMON_PCI_CONFIG_SPACE_INFO  PciConfigInfo;
+
+  CM_ARM_ET_INFO                        EtInfo;
 
   /// System ID
   UINT32                                SysId;

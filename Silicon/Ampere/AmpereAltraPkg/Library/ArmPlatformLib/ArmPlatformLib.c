@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2020 - 2021, Ampere Computing LLC. All rights reserved.<BR>
+  Copyright (c) 2020 - 2024, Ampere Computing LLC. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -24,7 +24,7 @@
 #include <Ppi/ArmMpCoreInfo.h>
 #include <Ppi/TemporaryRamSupport.h>
 
-ARM_CORE_INFO mArmPlatformMpCoreInfoTable[PLATFORM_CPU_MAX_NUM_CORES];
+ARM_CORE_INFO  mArmPlatformMpCoreInfoTable[PLATFORM_CPU_MAX_NUM_CORES];
 
 /**
   Return the current Boot Mode
@@ -51,29 +51,29 @@ ArmPlatformGetBootMode (
 **/
 EFI_STATUS
 ArmPlatformInitialize (
-  IN UINTN MpId
+  IN UINTN  MpId
   )
 {
-  RETURN_STATUS      Status;
-  UINT64             BaudRate;
-  UINT32             ReceiveFifoDepth;
-  EFI_PARITY_TYPE    Parity;
-  UINT8              DataBits;
-  EFI_STOP_BITS_TYPE StopBits;
+  RETURN_STATUS       Status;
+  UINT64              BaudRate;
+  UINT32              ReceiveFifoDepth;
+  EFI_PARITY_TYPE     Parity;
+  UINT8               DataBits;
+  EFI_STOP_BITS_TYPE  StopBits;
 
   Status = EFI_SUCCESS;
 
-  if (FixedPcdGet64 (PcdSerialRegisterBase) != 0) {
+  if (FixedPcdGet64 (PcdSerialDbgRegisterBase) != 0) {
     /* Debug port should use the same parameters with console */
-    BaudRate = FixedPcdGet64 (PcdUartDefaultBaudRate);
+    BaudRate         = FixedPcdGet64 (PcdSerialDbgUartBaudRate);
     ReceiveFifoDepth = FixedPcdGet32 (PcdUartDefaultReceiveFifoDepth);
-    Parity = (EFI_PARITY_TYPE)FixedPcdGet8 (PcdUartDefaultParity);
-    DataBits = FixedPcdGet8 (PcdUartDefaultDataBits);
-    StopBits = (EFI_STOP_BITS_TYPE)FixedPcdGet8 (PcdUartDefaultStopBits);
+    Parity           = (EFI_PARITY_TYPE)FixedPcdGet8 (PcdUartDefaultParity);
+    DataBits         = FixedPcdGet8 (PcdUartDefaultDataBits);
+    StopBits         = (EFI_STOP_BITS_TYPE)FixedPcdGet8 (PcdUartDefaultStopBits);
 
     /* Initialize uart debug port */
     Status = PL011UartInitializePort (
-               (UINTN)FixedPcdGet64 (PcdSerialRegisterBase),
+               (UINTN)FixedPcdGet64 (PcdSerialDbgRegisterBase),
                FixedPcdGet32 (PL011UartClkInHz),
                &BaudRate,
                &ReceiveFifoDepth,
@@ -88,32 +88,34 @@ ArmPlatformInitialize (
 
 EFI_STATUS
 PrePeiCoreGetMpCoreInfo (
-  OUT UINTN         *CoreCount,
-  OUT ARM_CORE_INFO **ArmCoreTable
+  OUT UINTN          *CoreCount,
+  OUT ARM_CORE_INFO  **ArmCoreTable
   )
 {
-  UINTN              mArmPlatformCoreCount;
-  UINTN              ClusterId;
-  UINTN              SocketId;
-  UINTN              Index;
+  UINTN  mArmPlatformCoreCount;
+  UINTN  ClusterId;
+  UINTN  SocketId;
+  UINTN  Index;
 
   ASSERT (CoreCount != NULL);
   ASSERT (ArmCoreTable != NULL);
-  ASSERT (*ArmCoreTable != NULL);
 
   mArmPlatformCoreCount = 0;
-  for  (Index = 0; Index < PLATFORM_CPU_MAX_NUM_CORES; Index++) {
+  for (Index = 0; Index < PLATFORM_CPU_MAX_NUM_CORES; Index++) {
     if (!IsCpuEnabled (Index)) {
       continue;
     }
-    SocketId = SOCKET_ID (Index);
+
+    SocketId  = SOCKET_ID (Index);
     ClusterId = CLUSTER_ID (Index);
-    mArmPlatformMpCoreInfoTable[mArmPlatformCoreCount].Mpidr = GET_MPID (
-      SocketId, (ClusterId << 8) | (Index % PLATFORM_CPU_NUM_CORES_PER_CPM));
+
+    mArmPlatformMpCoreInfoTable[mArmPlatformCoreCount].Mpidr =
+      AC01_GET_MPIDR ((UINT64)SocketId, ClusterId, (Index % PLATFORM_CPU_NUM_CORES_PER_CPM));
+
     mArmPlatformMpCoreInfoTable[mArmPlatformCoreCount].MailboxClearAddress = 0;
-    mArmPlatformMpCoreInfoTable[mArmPlatformCoreCount].MailboxClearValue = 0;
-    mArmPlatformMpCoreInfoTable[mArmPlatformCoreCount].MailboxGetAddress = 0;
-    mArmPlatformMpCoreInfoTable[mArmPlatformCoreCount].MailboxSetAddress = 0;
+    mArmPlatformMpCoreInfoTable[mArmPlatformCoreCount].MailboxClearValue   = 0;
+    mArmPlatformMpCoreInfoTable[mArmPlatformCoreCount].MailboxGetAddress   = 0;
+    mArmPlatformMpCoreInfoTable[mArmPlatformCoreCount].MailboxSetAddress   = 0;
     mArmPlatformCoreCount++;
   }
 
@@ -125,14 +127,12 @@ PrePeiCoreGetMpCoreInfo (
   return EFI_SUCCESS;
 }
 
-// Needs to be declared in the file. Otherwise gArmMpCoreInfoPpiGuid is undefined in the contect of PrePeiCore
-EFI_GUID             mArmMpCoreInfoPpiGuid = ARM_MP_CORE_INFO_PPI_GUID;
-ARM_MP_CORE_INFO_PPI mMpCoreInfoPpi = { PrePeiCoreGetMpCoreInfo };
+ARM_MP_CORE_INFO_PPI  mMpCoreInfoPpi = { PrePeiCoreGetMpCoreInfo };
 
-EFI_PEI_PPI_DESCRIPTOR gPlatformPpiTable[] = {
+EFI_PEI_PPI_DESCRIPTOR  gPlatformPpiTable[] = {
   {
     EFI_PEI_PPI_DESCRIPTOR_PPI,
-    &mArmMpCoreInfoPpiGuid,
+    &gArmMpCoreInfoPpiGuid,
     &mMpCoreInfoPpi
   },
 };
@@ -149,19 +149,18 @@ EFI_PEI_PPI_DESCRIPTOR gPlatformPpiTable[] = {
 **/
 VOID
 ArmPlatformGetPlatformPpiList (
-  OUT UINTN                  *PpiListSize,
-  OUT EFI_PEI_PPI_DESCRIPTOR **PpiList
+  OUT UINTN                   *PpiListSize,
+  OUT EFI_PEI_PPI_DESCRIPTOR  **PpiList
   )
 {
   ASSERT (PpiListSize != NULL);
   ASSERT (PpiList != NULL);
-  ASSERT (*PpiList != NULL);
 
   if (ArmIsMpCore ()) {
     *PpiListSize = sizeof (gPlatformPpiTable);
-    *PpiList = gPlatformPpiTable;
+    *PpiList     = gPlatformPpiTable;
   } else {
     *PpiListSize = 0;
-    *PpiList = NULL;
+    *PpiList     = NULL;
   }
 }

@@ -2,7 +2,7 @@
   The library implements the hardware Mailbox (Doorbell) interface for communication
   between the Application Processor (ARMv8) and the System Control Processors (SMpro/PMpro).
 
-  Copyright (c) 2021, Ampere Computing LLC. All rights reserved.<BR>
+  Copyright (c) 2021 - 2024, Ampere Computing LLC. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -21,23 +21,23 @@
 //
 // Hardware Doorbells
 //
-#define SMPRO_DB0_IRQ_OFST               40
-#define SMPRO_DB0_BASE_ADDRESS           (FixedPcdGet64 (PcdSmproDbBaseReg))
+#define SMPRO_DB0_IRQ_OFST      40
+#define SMPRO_DB0_BASE_ADDRESS  (FixedPcdGet64 (PcdSmproDbBaseReg))
 
-#define PMPRO_DB0_IRQ_OFST               56
-#define PMPRO_DB0_BASE_ADDRESS           (FixedPcdGet64 (PcdPmproDbBaseReg))
+#define PMPRO_DB0_IRQ_OFST      56
+#define PMPRO_DB0_BASE_ADDRESS  (FixedPcdGet64 (PcdPmproDbBaseReg))
 
 //
 // The base SPI interrupt number of the Slave socket
 //
-#define SLAVE_SOCKET_SPI_INTERRUPT 352
+#define SLAVE_SOCKET_SPI_INTERRUPT  352
 
-#define SLAVE_SOCKET_DOORBELL_INTERRUPT_BASE(Socket) ((Socket) * SLAVE_SOCKET_SPI_INTERRUPT - 32)
+#define SLAVE_SOCKET_DOORBELL_INTERRUPT_BASE(Socket)  ((Socket) * SLAVE_SOCKET_SPI_INTERRUPT - 32)
 
 //
 // Doorbell base register stride size
 //
-#define DB_BASE_REG_STRIDE 0x00001000
+#define DB_BASE_REG_STRIDE  0x00001000
 
 #define SMPRO_DBx_ADDRESS(socket, db) \
         ((socket) * SLAVE_SOCKET_BASE_ADDRESS_OFFSET + SMPRO_DB0_BASE_ADDRESS + DB_BASE_REG_STRIDE * (db))
@@ -48,8 +48,12 @@
 //
 // Doorbell Status Bits
 //
-#define DB_STATUS_AVAIL_BIT       BIT16
-#define DB_STATUS_ACK_BIT         BIT0
+#define DB_STATUS_AVAIL_BIT  BIT16
+#define DB_STATUS_ACK_BIT    BIT0
+
+UINTN  gDoorbellBaseAddress[PLATFORM_CPU_MAX_SOCKET][NUMBER_OF_DOORBELLS_PER_SOCKET] = {
+  { 0 }
+};
 
 /**
   Get the base address of a doorbell.
@@ -64,25 +68,35 @@
 UINTN
 EFIAPI
 MailboxGetDoorbellAddress (
-  IN UINT8             Socket,
-  IN DOORBELL_CHANNELS Doorbell
+  IN UINT8              Socket,
+  IN DOORBELL_CHANNELS  Doorbell
   )
 {
-  UINTN DoorbellAddress;
+  UINTN  SocketId;
+  UINTN  DoorbellId;
 
-  if (Socket >= GetNumberOfActiveSockets ()
-      || Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET)
+  if (  (Socket >= GetNumberOfActiveSockets ())
+     || (Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET))
   {
     return 0;
   }
 
-  if (Doorbell >= SMproDoorbellChannel0) {
-    DoorbellAddress = SMPRO_DBx_ADDRESS (Socket, (UINT8)(Doorbell - SMproDoorbellChannel0));
-  } else {
-    DoorbellAddress = PMPRO_DBx_ADDRESS (Socket, (UINT8)Doorbell);
+  //
+  // Setup Doorbell base address at the first attempt
+  //
+  if (gDoorbellBaseAddress[0][0] == 0) {
+    for (SocketId = 0; SocketId < PLATFORM_CPU_MAX_SOCKET; SocketId++) {
+      for (DoorbellId = 0; DoorbellId < NUMBER_OF_DOORBELLS_PER_SOCKET; DoorbellId++) {
+        if (DoorbellId >= SMproDoorbellChannel0) {
+          gDoorbellBaseAddress[SocketId][DoorbellId] = SMPRO_DBx_ADDRESS (SocketId, (UINT8)(DoorbellId - SMproDoorbellChannel0));
+        } else {
+          gDoorbellBaseAddress[SocketId][DoorbellId] = PMPRO_DBx_ADDRESS (SocketId, (UINT8)DoorbellId);
+        }
+      }
+    }
   }
 
-  return DoorbellAddress;
+  return gDoorbellBaseAddress[Socket][Doorbell];
 }
 
 /**
@@ -98,14 +112,14 @@ MailboxGetDoorbellAddress (
 UINT32
 EFIAPI
 MailboxGetDoorbellInterruptNumber (
-  IN UINT8             Socket,
-  IN DOORBELL_CHANNELS Doorbell
+  IN UINT8              Socket,
+  IN DOORBELL_CHANNELS  Doorbell
   )
 {
-  UINT32 DoorbellInterruptNumber;
+  UINT32  DoorbellInterruptNumber;
 
-  if (Socket >= GetNumberOfActiveSockets ()
-      || Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET)
+  if (  (Socket >= GetNumberOfActiveSockets ())
+     || (Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET))
   {
     return 0;
   }
@@ -139,17 +153,17 @@ MailboxGetDoorbellInterruptNumber (
 EFI_STATUS
 EFIAPI
 MailboxRead (
-  IN  UINT8                Socket,
-  IN  DOORBELL_CHANNELS    Doorbell,
-  OUT MAILBOX_MESSAGE_DATA *Message
+  IN  UINT8                 Socket,
+  IN  DOORBELL_CHANNELS     Doorbell,
+  OUT MAILBOX_MESSAGE_DATA  *Message
   )
 {
-  UINTN TimeoutCount;
-  UINTN DoorbellAddress;
+  UINTN  TimeoutCount;
+  UINTN  DoorbellAddress;
 
-  if (Socket >= GetNumberOfActiveSockets ()
-      || Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET
-      || Message == NULL)
+  if (  (Socket >= GetNumberOfActiveSockets ())
+     || (Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET)
+     || (Message == NULL))
   {
     return EFI_INVALID_PARAMETER;
   }
@@ -171,7 +185,7 @@ MailboxRead (
 
   Message->ExtendedData[0] = MmioRead32 (DoorbellAddress + DB_DIN0_REG_OFST);
   Message->ExtendedData[1] = MmioRead32 (DoorbellAddress + DB_DIN1_REG_OFST);
-  Message->Data = MmioRead32 (DoorbellAddress + DB_IN_REG_OFST);
+  Message->Data            = MmioRead32 (DoorbellAddress + DB_IN_REG_OFST);
 
   //
   // Write 1 to clear the AVAIL status
@@ -195,17 +209,17 @@ MailboxRead (
 EFI_STATUS
 EFIAPI
 MailboxWrite (
-  IN UINT8                Socket,
-  IN DOORBELL_CHANNELS    Doorbell,
-  IN MAILBOX_MESSAGE_DATA *Message
+  IN UINT8                 Socket,
+  IN DOORBELL_CHANNELS     Doorbell,
+  IN MAILBOX_MESSAGE_DATA  *Message
   )
 {
-  UINTN TimeoutCount;
-  UINTN DoorbellAddress;
+  UINTN  TimeoutCount;
+  UINTN  DoorbellAddress;
 
-  if (Socket >= GetNumberOfActiveSockets ()
-      || Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET
-      || Message == NULL)
+  if (  (Socket >= GetNumberOfActiveSockets ())
+     || (Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET)
+     || (Message == NULL))
   {
     return EFI_INVALID_PARAMETER;
   }
@@ -260,14 +274,14 @@ MailboxWrite (
 EFI_STATUS
 EFIAPI
 MailboxUnmaskInterrupt (
-  IN UINT8  Socket,
-  IN UINT16 Doorbell
+  IN UINT8   Socket,
+  IN UINT16  Doorbell
   )
 {
-  UINTN DoorbellAddress;
+  UINTN  DoorbellAddress;
 
-  if (Socket >= GetNumberOfActiveSockets ()
-      || Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET)
+  if (  (Socket >= GetNumberOfActiveSockets ())
+     || (Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET))
   {
     return EFI_INVALID_PARAMETER;
   }

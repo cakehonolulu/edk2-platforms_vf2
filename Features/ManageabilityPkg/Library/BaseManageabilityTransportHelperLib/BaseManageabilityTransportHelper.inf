@@ -21,10 +21,12 @@
 
 [Sources]
   BaseManageabilityTransportHelper.c
+  BaseManageabilityTransportIpmiHelper.c
 
 [LibraryClasses]
   BaseMemoryLib
   DebugLib
+  MemoryAllocationLib
 
 [Packages]
   ManageabilityPkg/ManageabilityPkg.dec
@@ -32,8 +34,9 @@
 
 [Guids]
   gManageabilityTransportKcsGuid
-  gManageabilityTransportI2CGuid
+  gManageabilityTransportSmbusI2cGuid
   gManageabilityTransportPciVdmGuid
+  gManageabilityTransportSerialGuid
   gManageabilityTransportMctpGuid
   gManageabilityProtocolIpmiGuid
   gManageabilityProtocolMctpGuid

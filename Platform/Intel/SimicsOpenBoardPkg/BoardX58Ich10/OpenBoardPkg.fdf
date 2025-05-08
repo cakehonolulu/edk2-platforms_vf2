@@ -1,6 +1,6 @@
 ## @file
 #
-# Copyright (c) 2019 Intel Corporation. All rights reserved. <BR>
+# Copyright (c) 2019 - 2023 Intel Corporation. All rights reserved. <BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -79,9 +79,6 @@ ErasePolarity = 1
 BlockSize     = 0x10000
 NumBlocks     = 0xB0
 
-0x000000|0x006000
-gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsSecPageTablesBase|gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsSecPageTablesSize
-
 0x006000|0x001000
 gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsLockBoxStorageBase|gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsLockBoxStorageSize
 
@@ -121,7 +118,7 @@ READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 FvNameGuid         = 229EEDCE-8E76-4809-B233-EC36BFBF6989
 
-INF  RuleOverride=RESET_SECMAIN USE = IA32 $(BOARD_PKG)/SecCore/SecMain.inf
+INF  RuleOverride=RESET_SECMAIN USE = $(PEI_ARCH) $(BOARD_PKG)/SecCore/SecMain.inf
 !include $(SKT_PKG)/SktSecInclude.fdf
 
 [FV.FvPreMemory]
@@ -165,7 +162,6 @@ INF  MinPlatformPkg/PlatformInit/SiliconPolicyPei/SiliconPolicyPeiPostMem.inf
 !include MinPlatformPkg/Include/Fdf/CoreSecurityPostMemoryInclude.fdf
 
 INF  UefiCpuPkg/Universal/Acpi/S3Resume2Pei/S3Resume2Pei.inf
-INF  $(SKT_PKG)/Smm/Access/SmmAccessPei.inf
 # S3 SMM PEI driver
 #INF  UefiCpuPkg/PiSmmCommunication/PiSmmCommunicationPei.inf
 
@@ -202,14 +198,12 @@ INF  UefiCpuPkg/CpuDxe/CpuDxe.inf
 INF  MdeModulePkg/Universal/Acpi/S3SaveStateDxe/S3SaveStateDxe.inf
 INF  MdeModulePkg/Universal/Acpi/BootScriptExecutorDxe/BootScriptExecutorDxe.inf
 INF  UefiCpuPkg/CpuS3DataDxe/CpuS3DataDxe.inf
-INF  MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
 INF  MdeModulePkg/Universal/PrintDxe/PrintDxe.inf
 INF  MdeModulePkg/Bus/Scsi/ScsiBusDxe/ScsiBusDxe.inf
 INF  MdeModulePkg/Bus/Scsi/ScsiDiskDxe/ScsiDiskDxe.inf
 
 INF  MdeModulePkg/Bus/Ata/AtaAtapiPassThru/AtaAtapiPassThru.inf
 INF  MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
-INF  IntelSiliconPkg/Feature/Flash/SpiFvbService/SpiFvbServiceSmm.inf
 INF  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
 INF  BoardModulePkg/LegacySioDxe/LegacySioDxe.inf
 INF  BoardModulePkg/BoardBdsHookDxe/BoardBdsHookDxe.inf
@@ -224,14 +218,26 @@ INF  RuleOverride=ACPITABLE $(BOARD_PKG)/AcpiTables/AcpiTables.inf
 
 INF $(BOARD_PKG)/SimicsVideoDxe/SimicsVideoDxe.inf
 INF  MinPlatformPkg/PlatformInit/PlatformInitDxe/PlatformInitDxe.inf
-INF  MinPlatformPkg/PlatformInit/PlatformInitSmm/PlatformInitSmm.inf
 INF  $(BOARD_PKG)/SimicsDxe/SimicsDxe.inf
+
+!if gMinPlatformPkgTokenSpaceGuid.PcdStandaloneMmEnable == TRUE
+  #INF  UefiCpuPkg/PiSmmCpuDxeSmm/PiSmmCpuStandaloneMm.inf
+  INF  StandaloneMmPkg/Drivers/MmCommunicationDxe/MmCommunicationDxe.inf
+  INF  IntelSiliconPkg/Feature/Flash/SpiFvbService/SpiFvbServiceStandaloneMm.inf
+!else
+  #INF  UefiCpuPkg/PiSmmCpuDxeSmm/PiSmmCpuDxeSmm.inf
+  INF  IntelSiliconPkg/Feature/Flash/SpiFvbService/SpiFvbServiceSmm.inf
+  INF  MinPlatformPkg/PlatformInit/PlatformInitSmm/PlatformInitSmm.inf
+!endif
 
 FILE FREEFORM = 7BB28B99-61BB-11D5-9A5D-0090273FC14D {
   SECTION RAW = $(BOARD_PKG)/Logo/Logo.bmp
 }
 
 INF  ShellPkg/Application/Shell/Shell.inf
+!if gMinPlatformPkgTokenSpaceGuid.PcdPerformanceEnable == TRUE
+INF  ShellPkg/DynamicCommand/DpDynamicCommand/DpDynamicCommand.inf
+!endif
 
 #
 # Network modules
@@ -285,7 +291,7 @@ FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
 
 !include MinPlatformPkg/Include/Fdf/RuleInclude.fdf
 
-[Rule.Common.SEC.RESET_VECTOR]
+[Rule.Common.USER_DEFINED.RESET_VECTOR]
   FILE RAW = $(NAMED_GUID) {
     RAW BIN   Align = 16   |.bin
   }

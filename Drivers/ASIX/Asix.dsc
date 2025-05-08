@@ -46,21 +46,6 @@
   UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
   UefiRuntimeLib|MdePkg/Library/UefiRuntimeLib/UefiRuntimeLib.inf
 
-[LibraryClasses.AARCH64, LibraryClasses.ARM]
-  NULL|ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
-
-[LibraryClasses.ARM]
-  NULL|MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
-
-################################################################################
-#
-# Pcd Section - list of all EDK II PCD Entries defined by this Platform
-#
-################################################################################
-[PcdsFeatureFlag]
-
-[PcdsFixedAtBuild]
-
 ################################################################################
 #
 # Components Section - list of all EDK II Modules needed by this Platform

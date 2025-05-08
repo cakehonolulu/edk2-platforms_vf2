@@ -14,7 +14,7 @@
 #include <Library/DebugLib.h>
 #include <Library/HobLib.h>
 
-VOID *mPlatformInfoHob = NULL;
+VOID  *mPlatformInfoHob = NULL;
 
 /**
   Get the platform HOB data.
@@ -33,10 +33,10 @@ GetPlatformHob (
                          (CONST VOID *)FixedPcdGet64 (PcdSystemMemoryBase)
                          );
     if (mPlatformInfoHob == NULL) {
-      DEBUG ((DEBUG_ERROR, "%a: Failed to get gPlatformInfoHobGuid!\n", __FUNCTION__));
+      DEBUG ((DEBUG_ERROR, "%a: Failed to get gPlatformInfoHobGuid!\n", __func__));
       return NULL;
     }
- }
+  }
 
   return ((PLATFORM_INFO_HOB *)GET_GUID_HOB_DATA (mPlatformInfoHob));
 }

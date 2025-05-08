@@ -4,7 +4,7 @@
 # This provides platform specific component descriptions and libraries that
 # conform to EFI/Framework standards.
 #
-# Copyright (c) 2018 - 2021, ARM Limited. All rights reserved.<BR>
+# Copyright (c) 2018 - 2024, ARM Limited. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -27,8 +27,8 @@
   FLASH_DEFINITION               = Platform/ARM/N1Sdp/N1SdpPlatform.fdf
   BUILD_NUMBER                   = 1
 
-!include Platform/ARM/VExpressPkg/ArmVExpress.dsc.inc
 !include MdePkg/MdeLibs.dsc.inc
+!include Platform/ARM/VExpressPkg/ArmVExpress.dsc.inc
 
 !include DynamicTablesPkg/DynamicTables.dsc.inc
 
@@ -73,7 +73,6 @@
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
 
 [LibraryClasses.common.DXE_DRIVER]
-  FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
   PciHostBridgeLib|Silicon/ARM/NeoverseN1Soc/Library/PciHostBridgeLib/PciHostBridgeLib.inf
   PciSegmentLib|Silicon/ARM/NeoverseN1Soc/Library/PciSegmentLib/PciSegmentLib.inf
 
@@ -98,16 +97,12 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdTurnOffUsbLegacySupport|TRUE
 
 [PcdsFixedAtBuild.common]
-  gArmTokenSpaceGuid.PcdVFPEnabled|1
-
   # RAM Disk
   gArmN1SdpTokenSpaceGuid.PcdRamDiskBase|0x88000000
   gArmN1SdpTokenSpaceGuid.PcdRamDiskSize|0x18000000
 
-  # Stacks for MPCores in Normal World
   gArmPlatformTokenSpaceGuid.PcdCPUCoresStackBase|0x80000000
   gArmPlatformTokenSpaceGuid.PcdCPUCorePrimaryStackSize|0x40000
-  gArmPlatformTokenSpaceGuid.PcdCPUCoreSecondaryStackSize|0x0
 
   # System Memory (2GB) - Reserved Secure Memory (16MB)
   gArmTokenSpaceGuid.PcdSystemMemoryBase|0x80000000
@@ -136,9 +131,9 @@
   gArmPlatformTokenSpaceGuid.PL011UartInterrupt|95
 
   # PL011 Serial Debug UART (DBG2)
-  gArmPlatformTokenSpaceGuid.PcdSerialDbgRegisterBase|gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase
+  gArmPlatformTokenSpaceGuid.PcdSerialDbgRegisterBase|0x1C0A0000
   gArmPlatformTokenSpaceGuid.PcdSerialDbgUartBaudRate|gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate
-  gArmPlatformTokenSpaceGuid.PcdSerialDbgUartClkInHz|50000000
+  gArmPlatformTokenSpaceGuid.PcdSerialDbgUartClkInHz|24000000
 
   # SBSA Watchdog
   gArmTokenSpaceGuid.PcdGenericWatchdogEl2IntrNum|93
@@ -149,8 +144,6 @@
   # ARM OS Loader
   gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut|0
 
-  # ARM Architectural Timer Frequency
-  gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|100000000
   gEmbeddedTokenSpaceGuid.PcdMetronomeTickPeriod|1000
   gEmbeddedTokenSpaceGuid.PcdTimerPeriod|1000
 
@@ -161,11 +154,13 @@
   # ACPI Table Version
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiExposedTableVersions|0x20
 
-  # Runtime Variable storage
-  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved|0
-  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvModeEnable|TRUE
-  gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize|0x2000
-  gEfiMdeModulePkgTokenSpaceGuid.PcdMaxAuthVariableSize|0x2800
+  # NOR flash support
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase|0x18F40000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize|0x00020000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase|0x18F20000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize|0x00020000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase|0x18F00000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize|0x00020000
 
 ################################################################################
 #
@@ -176,7 +171,7 @@
   # PEI Phase modules
   ArmPkg/Drivers/CpuPei/CpuPei.inf
   ArmPlatformPkg/MemoryInitPei/MemoryInitPeim.inf
-  ArmPlatformPkg/PrePeiCore/PrePeiCoreUniCore.inf
+  ArmPlatformPkg/Sec/Sec.inf
   ArmPlatformPkg/PlatformPei/PlatformPeim.inf
   MdeModulePkg/Core/Pei/PeiMain.inf
   MdeModulePkg/Universal/PCD/Pei/Pcd.inf {
@@ -197,9 +192,19 @@
       gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x8000000F
   }
 
+  # NOR flash support
+  Platform/ARM/Drivers/NorFlashDxe/NorFlashDxe.inf {
+    <LibraryClasses>
+      NorFlashDeviceLib|Platform/ARM/Library/CadenceQspiNorFlashDeviceLib/CadenceQspiNorFlashDeviceLib.inf
+      NorFlashPlatformLib|Silicon/ARM/NeoverseN1Soc/Library/NorFlashLib/NorFlashLib.inf
+      NorFlashInfoLib|EmbeddedPkg/Library/NorFlashInfoLib/NorFlashInfoLib.inf
+    <PcdsFixedAtBuild>
+      gPlatformArmTokenSpaceGuid.PcdNorFlashRegBaseAddress|0x1C0C0000
+  }
+
   # Architectural Protocols
   ArmPkg/Drivers/CpuDxe/CpuDxe.inf
-  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
+  ArmPkg/Drivers/ArmGicDxe/ArmGicV3Dxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
   ArmPkg/Drivers/GenericWatchdogDxe/GenericWatchdogDxe.inf
   EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
@@ -217,8 +222,10 @@
   MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf {
     <LibraryClasses>
       NULL|MdeModulePkg/Library/VarCheckUefiLib/VarCheckUefiLib.inf
+      NULL|EmbeddedPkg/Library/NvVarStoreFormattedLib/NvVarStoreFormattedLib.inf
       BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
   }
+  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
 
   # ACPI Support
   MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
@@ -227,6 +234,12 @@
 
   # Platform driver
   Platform/ARM/N1Sdp/Drivers/PlatformDxe/PlatformDxe.inf
+
+  # PEI Phase modules
+  Silicon/ARM/NeoverseN1Soc/Library/N1SdpNtFwConfigPei/NtFwConfigPei.inf {
+    <LibraryClasses>
+      FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf  # Map to deprecated library for this module only
+  }
 
   # Human Interface Support
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf

@@ -1,5 +1,5 @@
 /** @file
-  Null instance of Manageability Transport Helper Library
+  Manageability Transport Helper Library
 
   Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.<BR>
   SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -8,20 +8,22 @@
 #include <Uefi.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
+#include <Library/MemoryAllocationLib.h>
 #include <Library/ManageabilityTransportHelperLib.h>
 
 //
 // BaseManageabilityTransportHelper is used by PEI, DXE and SMM.
-// Make sure the global variables added here should be unchangable.
+// Make sure the global variables added here should be unchangeable.
 //
 MANAGEABILITY_SPECIFICATION_NAME  ManageabilitySpecNameTable[] = {
-  { &gManageabilityTransportKcsGuid,    L"KCS"     },
-  { &gManageabilityTransportI2CGuid,    L"I2C"     },
-  { &gManageabilityTransportPciVdmGuid, L"PCI VDM" },
-  { &gManageabilityTransportMctpGuid,   L"MCTP"    },
-  { &gManageabilityProtocolIpmiGuid,    L"IPMI"    },
-  { &gManageabilityProtocolMctpGuid,    L"MCTP"    },
-  { &gManageabilityProtocolPldmGuid,    L"PLDM"    }
+  { &gManageabilityTransportKcsGuid,         L"KCS"      },
+  { &gManageabilityTransportSmbusI2cGuid,    L"SMBUS I2C"},
+  { &gManageabilityTransportPciVdmGuid,      L"PCI VDM"  },
+  { &gManageabilityTransportSerialGuid,      L"SERIAL"   },
+  { &gManageabilityTransportMctpGuid,        L"MCTP"     },
+  { &gManageabilityProtocolIpmiGuid,         L"IPMI"     },
+  { &gManageabilityProtocolMctpGuid,         L"MCTP"     },
+  { &gManageabilityProtocolPldmGuid,         L"PLDM"     }
 };
 
 UINT16  mManageabilitySpecNum = sizeof (ManageabilitySpecNameTable)/ sizeof (MANAGEABILITY_SPECIFICATION_NAME);
@@ -47,8 +49,8 @@ HelperManageabilitySpecName (
     return NULL;
   }
 
-  if (SpecificationGuid == NULL || IsZeroGuid (SpecificationGuid)) {
-    DEBUG((DEBUG_ERROR, "%a: Improper input GUIDs, could be NULL or zero GUID.\n", __FUNCTION__));
+  if ((SpecificationGuid == NULL) || IsZeroGuid (SpecificationGuid)) {
+    DEBUG ((DEBUG_ERROR, "%a: Improper input GUIDs, could be NULL or zero GUID.\n", __func__));
     return NULL;
   }
 
@@ -99,12 +101,13 @@ HelperManageabilityCheckSupportedSpec (
     return EFI_INVALID_PARAMETER;
   }
 
-  if (TransportGuid == NULL ||
+  if ((TransportGuid == NULL) ||
       IsZeroGuid (TransportGuid) ||
-      ManageabilityProtocolToCheck == NULL ||
+      (ManageabilityProtocolToCheck == NULL) ||
       IsZeroGuid (ManageabilityProtocolToCheck)
-      ) {
-      DEBUG((DEBUG_ERROR, "%a: Improper input GUIDs, could be NULL or zero GUID.\n", __FUNCTION__));
+      )
+  {
+    DEBUG ((DEBUG_ERROR, "%a: Improper input GUIDs, could be NULL or zero GUID.\n", __func__));
     return EFI_INVALID_PARAMETER;
   }
 
@@ -116,9 +119,9 @@ HelperManageabilityCheckSupportedSpec (
           ))
     {
       DEBUG ((
-        DEBUG_VERBOSE,
+        DEBUG_MANAGEABILITY_INFO,
         "%a: Transport interface %s supports %s manageability specification.\n",
-        __FUNCTION__,
+        __func__,
         HelperManageabilitySpecName (TransportGuid),
         HelperManageabilitySpecName (ManageabilityProtocolToCheck)
         ));
@@ -131,7 +134,7 @@ HelperManageabilityCheckSupportedSpec (
   DEBUG ((
     DEBUG_ERROR,
     "%a: Transport interface %s doesn't support %s manageability specification.\n",
-    __FUNCTION__,
+    __func__,
     HelperManageabilitySpecName (TransportGuid),
     HelperManageabilitySpecName (ManageabilityProtocolToCheck)
     ));
@@ -161,24 +164,24 @@ HelperAcquireManageabilityTransport (
   CHAR16      *ManageabilityProtocolName;
   CHAR16      *ManageabilityTransportName;
 
-  DEBUG ((DEBUG_INFO, "%a: Entry\n", __FUNCTION__));
+  DEBUG ((DEBUG_MANAGEABILITY_INFO, "%a: Entry\n", __func__));
   if ((TransportToken == NULL) || (ManageabilityProtocolSpec == NULL)) {
-    DEBUG ((DEBUG_ERROR, "%a: One of the required input parameters is NULL.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: One of the required input parameters is NULL.\n", __func__));
     return EFI_INVALID_PARAMETER;
   }
 
   *TransportToken           = NULL;
   ManageabilityProtocolName = HelperManageabilitySpecName (ManageabilityProtocolSpec);
   if (ManageabilityProtocolName == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Unsupported Manageability Protocol Specification.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Unsupported Manageability Protocol Specification.\n", __func__));
     return EFI_UNSUPPORTED;
   }
 
-  DEBUG ((DEBUG_INFO, "  Manageability protocol %s is going to acquire transport interface token...\n", ManageabilityProtocolName));
+  DEBUG ((DEBUG_MANAGEABILITY_INFO, "  Manageability protocol %s is going to acquire transport interface token...\n", ManageabilityProtocolName));
 
   Status = AcquireTransportSession (ManageabilityProtocolSpec, TransportToken);
   if (Status == EFI_UNSUPPORTED) {
-    DEBUG ((DEBUG_ERROR, "%a: No supported transport interface for %s packet.\n", __FUNCTION__, ManageabilityProtocolName));
+    DEBUG ((DEBUG_ERROR, "%a: No supported transport interface for %s packet.\n", __func__, ManageabilityProtocolName));
     return Status;
   }
 
@@ -186,7 +189,7 @@ HelperAcquireManageabilityTransport (
     DEBUG ((
       DEBUG_ERROR,
       "%a: Fail to acquire Manageability transport token for %s (%r).\n",
-      __FUNCTION__,
+      __func__,
       ManageabilityProtocolName,
       Status
       ));
@@ -195,11 +198,11 @@ HelperAcquireManageabilityTransport (
 
   ManageabilityTransportName = HelperManageabilitySpecName ((*TransportToken)->Transport->ManageabilityTransportSpecification);
   if (ManageabilityTransportName == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Unsupported Manageability Transport Interface Specification\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Unsupported Manageability Transport Interface Specification\n", __func__));
     return EFI_UNSUPPORTED;
   }
 
-  DEBUG ((DEBUG_INFO, "%a: This is the transfer session for %s over %s\n", __FUNCTION__, ManageabilityProtocolName, ManageabilityTransportName));
+  DEBUG ((DEBUG_MANAGEABILITY_INFO, "%a: This is the transfer session for %s over %s\n", __func__, ManageabilityProtocolName, ManageabilityTransportName));
   return Status;
 }
 
@@ -225,7 +228,7 @@ HelperInitManageabilityTransport (
   EFI_STATUS  Status;
 
   if (TransportToken == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: TransportToken is invalid.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: TransportToken is invalid.\n", __func__));
     return EFI_INVALID_PARAMETER;
   }
 
@@ -240,22 +243,225 @@ HelperInitManageabilityTransport (
                                                                  );
       if (EFI_ERROR (Status)) {
         if (Status == EFI_UNSUPPORTED) {
-          DEBUG ((DEBUG_ERROR, "%a: Transport interface doesn't have reset capability.\n", __FUNCTION__));
+          DEBUG ((DEBUG_ERROR, "%a: Transport interface doesn't have reset capability.\n", __func__));
         } else {
-          DEBUG ((DEBUG_ERROR, "%a: Fail to reset transport interface (%r).\n", __FUNCTION__, Status));
+          DEBUG ((DEBUG_ERROR, "%a: Fail to reset transport interface (%r).\n", __func__, Status));
         }
 
         Status = EFI_DEVICE_ERROR;
       } else {
         Status = TransportToken->Transport->Function.Version1_0->TransportInit (TransportToken, HardwareInfo);
         if (EFI_ERROR (Status)) {
-          DEBUG ((DEBUG_ERROR, "%a: Transport interface is not able to use after the reset (%r).\n", __FUNCTION__, Status));
+          DEBUG ((DEBUG_ERROR, "%a: Transport interface is not able to use after the reset (%r).\n", __func__, Status));
         }
       }
     } else {
-      DEBUG ((DEBUG_ERROR, "%a: Transport interface is not able to use (%r).\n", __FUNCTION__, Status));
+      DEBUG ((DEBUG_ERROR, "%a: Transport interface is not able to use (%r).\n", __func__, Status));
     }
   }
 
   return Status;
+}
+
+/**
+  This function generates CRC8 with given polynomial.
+
+  @param[in]  Polynomial       Polynomial in 8-bit.
+  @param[in]  CrcInitialValue  CRC initial value.
+  @param[in]  BufferStart      Pointer to buffer starts the CRC calculation.
+  @param[in]  BufferSize       Size of buffer.
+
+  @retval  UINT8 CRC value.
+**/
+UINT8
+HelperManageabilityGenerateCrc8 (
+  IN UINT8   Polynomial,
+  IN UINT8   CrcInitialValue,
+  IN UINT8   *BufferStart,
+  IN UINT32  BufferSize
+  )
+{
+  UINT8   BitIndex;
+  UINT32  BufferIndex;
+
+  BufferIndex = 0;
+  while (BufferIndex < BufferSize) {
+    CrcInitialValue = CrcInitialValue ^ *(BufferStart + BufferIndex);
+    BufferIndex++;
+
+    for (BitIndex = 0; BitIndex < 8; BitIndex++) {
+      if ((CrcInitialValue & 0x80) != 0) {
+        CrcInitialValue = (CrcInitialValue << 1) ^ Polynomial;
+      } else {
+        CrcInitialValue <<= 1;
+      }
+    }
+  }
+
+  return CrcInitialValue;
+}
+
+/**
+  This function splits payload into multiple packages according to
+  the given transport interface Maximum Transfer Unit (MTU).
+
+
+  @param[in]  PreambleSize         The additional data size precedes
+                                   each package.
+  @param[in]  PostambleSize        The additional data size succeeds
+                                   each package.
+  @param[in]  Payload              Pointer to payload.
+  @param[in]  PayloadSize          Payload size in byte.
+  @param[in]  MaximumTransferUnit  MTU of transport interface.
+  @param[out] MultiplePackages     Pointer to receive
+                                   MANAGEABILITY_TRANSMISSION_MULTI_PACKAGES
+                                   structure. Caller has to free the memory
+                                   allocated for MANAGEABILITY_TRANSMISSION_MULTI_PACKAGES.
+
+  @retval   EFI_SUCCESS          MANAGEABILITY_TRANSMISSION_MULTI_PACKAGES structure
+                                 is returned successfully.
+  @retval   EFI_OUT_OF_RESOURCE  Not enough resource to create
+                                 MANAGEABILITY_TRANSMISSION_MULTI_PACKAGES structure.
+**/
+EFI_STATUS
+HelperManageabilitySplitPayload (
+  IN UINT16                                      PreambleSize,
+  IN UINT16                                      PostambleSize,
+  IN UINT8                                       *Payload,
+  IN UINT32                                      PayloadSize,
+  IN UINT32                                      MaximumTransferUnit,
+  OUT MANAGEABILITY_TRANSMISSION_MULTI_PACKAGES  **MultiplePackages
+  )
+{
+  UINT16                                     NumberOfPackages;
+  UINT16                                     IndexOfPackage;
+  UINT32                                     PackagePayloadSize;
+  UINT32                                     TotalPayloadRemaining;
+  MANAGEABILITY_TRANSMISSION_MULTI_PACKAGES  *ThisMultiplePackages;
+  MANAGEABILITY_TRANSMISSION_PACKAGE_ATTR    *ThisPackage;
+
+  if ((INT16)(MaximumTransferUnit - PreambleSize - PostambleSize) < 0) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "%a: (Preamble 0x%x + PostambleSize 0x%x) is greater than MaximumTransferUnit 0x%x.\n",
+      __func__,
+      PreambleSize,
+      PostambleSize,
+      MaximumTransferUnit
+      ));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  PackagePayloadSize   = MaximumTransferUnit -PreambleSize - PostambleSize;
+  NumberOfPackages     = (UINT16)((PayloadSize + (PackagePayloadSize - 1)) / PackagePayloadSize);
+  ThisMultiplePackages = (MANAGEABILITY_TRANSMISSION_MULTI_PACKAGES *)AllocateZeroPool (
+                                                                        sizeof (MANAGEABILITY_TRANSMISSION_MULTI_PACKAGES) +
+                                                                        sizeof (MANAGEABILITY_TRANSMISSION_PACKAGE_ATTR) * NumberOfPackages
+                                                                        );
+  if (ThisMultiplePackages == NULL) {
+    DEBUG ((DEBUG_ERROR, "%a: Not enough memory for MANAGEABILITY_TRANSMISSION_MULTI_PACKAGES\n"));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  ThisMultiplePackages->NumberOfPackages = NumberOfPackages;
+  ThisPackage                            = (MANAGEABILITY_TRANSMISSION_PACKAGE_ATTR *)(ThisMultiplePackages + 1);
+  TotalPayloadRemaining                  = PayloadSize;
+  for (IndexOfPackage = 0; IndexOfPackage < NumberOfPackages; IndexOfPackage++) {
+    ThisPackage->PayloadPointer = Payload + (IndexOfPackage * PackagePayloadSize);
+    ThisPackage->PayloadSize    = MIN (TotalPayloadRemaining, PackagePayloadSize);
+    TotalPayloadRemaining      -= ThisPackage->PayloadSize;
+    ThisPackage++;
+  }
+
+  if (TotalPayloadRemaining != 0) {
+    DEBUG ((DEBUG_ERROR, "%a: Error processing multiple packages (TotalPayloadRemaining != 0)\n", __func__));
+    FreePool (ThisMultiplePackages);
+    return EFI_INVALID_PARAMETER;
+  }
+
+  *MultiplePackages = ThisMultiplePackages;
+  return EFI_SUCCESS;
+}
+
+/**
+  Print out manageability transmit payload to the debug output device.
+
+  @param[in]  Payload      Payload to print.
+  @param[in]  PayloadSize  Payload size.
+
+**/
+VOID
+EFIAPI
+HelperManageabilityPayLoadDebugPrint (
+  IN  VOID    *Payload,
+  IN  UINT32  PayloadSize
+  )
+{
+  UINT16  Page256;
+  UINT16  Row16;
+  UINT16  Column16;
+  UINT32  RemainingBytes;
+  UINT32  TotalBytePrinted;
+
+  RemainingBytes   = PayloadSize;
+  TotalBytePrinted = 0;
+  while (TRUE) {
+    if (TotalBytePrinted % 256 == 0) {
+      Page256 = (UINT16)TotalBytePrinted / 256;
+      DEBUG ((DEBUG_MANAGEABILITY_INFO, "======== Manageability Payload %04xH - %04xH =========\n", Page256 * 256, Page256 * 256 + MIN (RemainingBytes, 256) - 1));
+      DEBUG ((DEBUG_MANAGEABILITY_INFO, "       "));
+      for (Column16 = 0; Column16 < 16; Column16++) {
+        DEBUG ((DEBUG_MANAGEABILITY_INFO, "%02x ", Column16));
+      }
+
+      DEBUG ((DEBUG_MANAGEABILITY_INFO, "\n       -----------------------------------------------\n"));
+    }
+
+    for (Row16 = 0; Row16 < 16; Row16++) {
+      DEBUG ((DEBUG_MANAGEABILITY_INFO, "%04x | ", Page256 * 256 + Row16 * 16));
+      for (Column16 = 0; Column16 < MIN (RemainingBytes, 16); Column16++) {
+        DEBUG ((DEBUG_MANAGEABILITY_INFO, "%02x ", *((UINT8 *)Payload + Page256 * 256 + Row16 * 16 + Column16)));
+      }
+
+      RemainingBytes   -= Column16;
+      TotalBytePrinted += Column16;
+      if (RemainingBytes == 0) {
+        DEBUG ((DEBUG_MANAGEABILITY_INFO, "\n\n"));
+        return;
+      }
+
+      DEBUG ((DEBUG_MANAGEABILITY_INFO, "\n"));
+    }
+
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "\n"));
+  }
+
+  DEBUG ((DEBUG_MANAGEABILITY_INFO, "\n\n"));
+}
+
+/**
+  Prints a debug message and manageability payload to the debug output device.
+
+  @param[in]  Payload      Payload to print.
+  @param[in]  PayloadSize  Payload size.
+  @param[in]  Format       The format string for the debug message to print.
+  @param[in]  ...          The variable argument list whose contents are accessed
+                           based on the format string specified by Format.
+
+**/
+VOID
+HelperManageabilityDebugPrint (
+  IN  VOID         *Payload,
+  IN  UINT32       PayloadSize,
+  IN  CONST CHAR8  *Format,
+  ...
+  )
+{
+  VA_LIST  Marker;
+
+  VA_START (Marker, Format);
+  DEBUG ((DEBUG_MANAGEABILITY_INFO, "Manageability Transmission: "));
+  DebugVPrint ((UINTN)DEBUG_MANAGEABILITY_INFO, Format, Marker);
+  HelperManageabilityPayLoadDebugPrint (Payload, PayloadSize);
+  VA_END (Marker);
 }

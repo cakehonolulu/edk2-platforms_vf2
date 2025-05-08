@@ -1,6 +1,6 @@
 ## @file
 #
-# Copyright (c) 2020 - 2021, Ampere Computing LLC. All rights reserved.<BR>
+# Copyright (c) 2020 - 2024, Ampere Computing LLC. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -47,6 +47,22 @@
   ## Include/Guid/PlatformManagerHii.h
   gPlatformManagerExitEventGuid  = { 0xE8887242, 0x4EFF, 0x4323, { 0x81, 0xF4, 0xC9, 0x5F, 0xD5, 0x8D, 0x80, 0xD5 } }
 
+  #
+  # BMC Configuration formset UUID
+  #
+  ## Include/Guid/BmcConfigHii.h
+  gBmcConfigFormSetGuid = { 0xC4D6ED50, 0x769D, 0x4319, { 0xEB, 0xB7, 0xCC, 0xDD, 0xC8, 0x9D, 0x3D, 0x2D } }
+
+  #
+  # GUID for the After Console event
+  ## Include/Guid/AmpereEventAfterConsole.h
+  gAmpereEventAfterConsoleGuid = { 0x7CCB608E, 0x428C, 0x44AE, { 0x95, 0x06, 0x58, 0x58, 0x2F, 0x0E, 0x8F, 0xB1 } }
+
+  #
+  # GUID for the Ampere defined UEFI variables
+  ## Include/Guid/AmpereVariableGuid.h
+  gAmpereVariableGuid = { 0x6B9F9381, 0xB1D0, 0x4991, { 0xBC, 0x4A, 0x17, 0xBC, 0x6B, 0x5B, 0xB0, 0x81 } }
+
 [Ppis]
 
 [PcdsFixedAtBuild]
@@ -54,6 +70,11 @@
   # NVRAM
   #
   gAmpereTokenSpaceGuid.PcdPlatformConfigUuid|"C416535D-970B-41B9-859A-3CAF0FAF198C"|VOID*|0x00000010
+
+  #
+  # RTC
+  #
+  gAmpereTokenSpaceGuid.PcdRtcBusNumber|0x4|UINT8|0x00000011
 
   #
   # SMpro PMpro Pcds
@@ -64,10 +85,27 @@
   gAmpereTokenSpaceGuid.PcdPmproDbBaseReg|0x100001540000|UINT64|0x00000004
 
   #
-  # SMBIOS Type 1 Pcd
+  # SMBIOS Type 0 Pcd
   #
-  gAmpereTokenSpaceGuid.PcdSmbiosTables1MajorVersion|0|UINT8|0x00000005
-  gAmpereTokenSpaceGuid.PcdSmbiosTables1MinorVersion|0|UINT8|0x00000006
+  gAmpereTokenSpaceGuid.PcdSmbiosTables0MajorVersion|0xFF|UINT8|0x00000005
+  gAmpereTokenSpaceGuid.PcdSmbiosTables0MinorVersion|0xFF|UINT8|0x00000006
+
+  #
+  # I2C PCDs for SMBUS
+  #
+  gAmpereTokenSpaceGuid.PcdSmbusI2cBusNumber|0x02|UINT8|0x00000007
+  gAmpereTokenSpaceGuid.PcdSmbusI2cBusSpeed|400000|UINT32|0x00000008 # Hz
+
+  #
+  # GPIO pin to support BMC ready check
+  #
+  gAmpereTokenSpaceGuid.PcdBmcReadyGpio|0x18|UINT8|0x00000009
+
+  #
+  # UEFI Extra FD file size
+  #
+  gAmpereTokenSpaceGuid.PcdUefiExtraFdBaseAddress|0x93100000|UINT64|0x0000000a
+  gAmpereTokenSpaceGuid.PcdUefiExtraFdSize|0x00900000|UINT32|0x0000000b
 
 [PcdsFixedAtBuild, PcdsDynamic, PcdsDynamicEx]
   #
@@ -75,8 +113,15 @@
   #
   gAmpereTokenSpaceGuid.PcdFvBlockSize|0|UINT32|0xB0000001
 
+  # Pcie HotPlug reset map
+  gAmpereTokenSpaceGuid.PcdPcieHotPlugGpioResetMap|0x0|UINT8|0xB000000A
+
   #
-  # SMBIOS, default or template values
+  # Pcie HotPlug Port Map table
   #
-  # SMBIOS Type 0 - BIOS Information
-  gAmpereTokenSpaceGuid.PcdSmbiosTables0BiosReleaseDate|"MM/DD/YYYY"|VOID*|0xB0000002 # Must follow this MM/DD/YYYY SMBIOS date format
+  gAmpereTokenSpaceGuid.PcdPcieHotPlugPortMapTable|{0x00}|PCIE_HOT_PLUG_PORT_MAP_TABLE|0xB000000B {
+    <HeaderFiles>
+      Library/PcieHotPlugPortMapLib.h
+    <Packages>
+      Silicon/Ampere/AmpereSiliconPkg/AmpereSiliconPkg.dec
+  }

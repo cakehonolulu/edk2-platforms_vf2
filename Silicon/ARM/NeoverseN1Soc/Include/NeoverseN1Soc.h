@@ -1,8 +1,11 @@
 /** @file
 *
-* Copyright (c) 2018 - 2020, ARM Limited. All rights reserved.
+* Copyright (c) 2018 - 2024, ARM Limited. All rights reserved.
 *
 * SPDX-License-Identifier: BSD-2-Clause-Patent
+*
+* Arm Neoverse N1 System Development Platform Technical Reference Manual
+* https://developer.arm.com/documentation/101489/0000/?lang=en
 *
 **/
 
@@ -41,10 +44,11 @@
 #define NEOVERSEN1SOC_EXP_PERIPH_BASE0               0x1C000000
 #define NEOVERSEN1SOC_EXP_PERIPH_BASE0_SZ            0x1300000
 
-// Base address to a structure of type NEOVERSEN1SOC_PLAT_INFO which is
-// pre-populated by a earlier boot stage
-#define NEOVERSEN1SOC_PLAT_INFO_STRUCT_BASE          (NEOVERSEN1SOC_NON_SECURE_SRAM_BASE + \
-                                                      0x00008000)
+// SCP QSPI flash device
+#define NEOVERSEN1SOC_SCP_QSPI_AHB_BASE              0x18000000
+#define NEOVERSEN1SOC_SCP_QSPI_AHB_SZ                0x2000000
+
+#define NEOVERSEN1SOC_FIRMWARE_IMAGES_SZ             0x800000
 
 /*
  * Platform information structure stored in Non-secure SRAM. Platform
@@ -55,12 +59,15 @@
 typedef struct {
   /*! 0 - Single Chip, 1 - Chip to Chip (C2C) */
   UINT8   MultichipMode;
-  /*! Slave count in C2C mode */
-  UINT8   SlaveCount;
+  /*! Secondary chip count in C2C mode */
+  UINT8   SecondaryChipCount;
   /*! Local DDR memory size in GigaBytes */
   UINT8   LocalDdrSize;
   /*! Remote DDR memory size in GigaBytes */
   UINT8   RemoteDdrSize;
 } NEOVERSEN1SOC_PLAT_INFO;
 
+typedef struct {
+  CONST VOID    *NtFwConfig;
+} NEOVERSEN1SOC_EL3_FW_HANDOFF_PARAM_PPI;
 #endif

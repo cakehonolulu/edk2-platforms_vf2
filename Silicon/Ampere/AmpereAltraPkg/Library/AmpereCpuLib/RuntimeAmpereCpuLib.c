@@ -18,8 +18,8 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeLib.h>
 
-EFI_EVENT   mRuntimeAmpereCpuLibVirtualNotifyEvent = NULL;
-VOID        *mPlatformInfoHob = NULL;
+EFI_EVENT  mRuntimeAmpereCpuLibVirtualNotifyEvent = NULL;
+VOID       *mPlatformInfoHob                      = NULL;
 
 /**
   Get the platform HOB data.
@@ -50,7 +50,7 @@ RuntimeAmpereCpuLibVirtualNotify (
   IN VOID       *Context
   )
 {
-  EFI_STATUS                       Status;
+  EFI_STATUS  Status;
 
   //
   // Convert the platform HOB address to a virtual address.
@@ -85,7 +85,7 @@ RuntimeAmpereCpuLibConstructor (
           (CONST VOID *)FixedPcdGet64 (PcdSystemMemoryBase)
           );
   if (Hob == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Failed to get gPlatformInfoHobGuid!\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Failed to get gPlatformInfoHobGuid!\n", __func__));
     return EFI_DEVICE_ERROR;
   }
 

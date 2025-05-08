@@ -1,7 +1,7 @@
 /** @file
   Configuration Manager Dxe
 
-  Copyright (c) 2017 - 2021, Arm Limited. All rights reserved.<BR>
+  Copyright (c) 2017 - 2024, Arm Limited. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -37,8 +37,8 @@ EDKII_PLATFORM_REPOSITORY_INFO VExpressPlatRepositoryInfo = {
   {
     // FADT Table
     {
-      EFI_ACPI_6_3_FIXED_ACPI_DESCRIPTION_TABLE_SIGNATURE,
-      EFI_ACPI_6_3_FIXED_ACPI_DESCRIPTION_TABLE_REVISION,
+      EFI_ACPI_6_5_FIXED_ACPI_DESCRIPTION_TABLE_SIGNATURE,
+      EFI_ACPI_6_5_FIXED_ACPI_DESCRIPTION_TABLE_REVISION,
       CREATE_STD_ACPI_TABLE_GEN_ID (EStdAcpiTableIdFadt),
       NULL
     },
@@ -51,8 +51,8 @@ EDKII_PLATFORM_REPOSITORY_INFO VExpressPlatRepositoryInfo = {
     },
     // MADT Table
     {
-      EFI_ACPI_6_3_MULTIPLE_APIC_DESCRIPTION_TABLE_SIGNATURE,
-      EFI_ACPI_6_3_MULTIPLE_APIC_DESCRIPTION_TABLE_REVISION,
+      EFI_ACPI_6_5_MULTIPLE_APIC_DESCRIPTION_TABLE_SIGNATURE,
+      EFI_ACPI_6_5_MULTIPLE_APIC_DESCRIPTION_TABLE_REVISION,
       CREATE_STD_ACPI_TABLE_GEN_ID (EStdAcpiTableIdMadt),
       NULL
     },
@@ -77,7 +77,13 @@ EDKII_PLATFORM_REPOSITORY_INFO VExpressPlatRepositoryInfo = {
       CREATE_STD_ACPI_TABLE_GEN_ID (EStdAcpiTableIdDbg2),
       NULL
     },
-
+    // SSDT Cpu Hierarchy Table
+    {
+      EFI_ACPI_6_3_SECONDARY_SYSTEM_DESCRIPTION_TABLE_SIGNATURE,
+      0, // Unused
+      CREATE_STD_ACPI_TABLE_GEN_ID (EStdAcpiTableIdSsdtCpuTopology),
+      NULL
+    },
     // Note: The last 3 tables in this list are for FVP RevC only.
     // IORT Table - FVP RevC
     {
@@ -103,15 +109,15 @@ EDKII_PLATFORM_REPOSITORY_INFO VExpressPlatRepositoryInfo = {
   },
 
   // Boot architecture information
-  { EFI_ACPI_6_3_ARM_PSCI_COMPLIANT },              // BootArchFlags
+  { EFI_ACPI_6_5_ARM_PSCI_COMPLIANT },              // BootArchFlags
 
 #ifdef HEADLESS_PLATFORM
   // Fixed feature flag information
-  { EFI_ACPI_6_3_HEADLESS },                        // Fixed feature flags
+  { EFI_ACPI_6_5_HEADLESS },                        // Fixed feature flags
 #endif
 
   // Power management profile information
-  { EFI_ACPI_6_3_PM_PROFILE_ENTERPRISE_SERVER },    // PowerManagement Profile
+  { EFI_ACPI_6_5_PM_PROFILE_ENTERPRISE_SERVER },    // PowerManagement Profile
 
   /* GIC CPU Interface information
      GIC_ENTRY (CPUInterfaceNumber, Mpidr, PmuIrq, VGicIrq, EnergyEfficiency)
@@ -225,7 +231,9 @@ EDKII_PLATFORM_REPOSITORY_INFO VExpressPlatRepositoryInfo = {
     FixedPcdGet32 (PL011UartInterrupt),                       // Interrupt
     FixedPcdGet64 (PcdUartDefaultBaudRate),                   // BaudRate
     FixedPcdGet32 (PL011UartClkInHz),                         // Clock
-    EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_SBSA_GENERIC_UART   // Port subtype
+    EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_SBSA_GENERIC_UART,  // Port subtype
+    0x1000,                                                   // Address length
+    EFI_ACPI_6_3_DWORD,                                       // Access size
   },
   // Debug Serial Port
   {
@@ -233,7 +241,9 @@ EDKII_PLATFORM_REPOSITORY_INFO VExpressPlatRepositoryInfo = {
     38,                                                       // Interrupt
     FixedPcdGet64 (PcdSerialDbgUartBaudRate),                 // BaudRate
     FixedPcdGet32 (PcdSerialDbgUartClkInHz),                  // Clock
-    EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_SBSA_GENERIC_UART   // Port subtype
+    EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_SBSA_GENERIC_UART,  // Port subtype
+    0x1000,                                                   // Address length
+    EFI_ACPI_6_3_DWORD,                                       // Access size
   },
 
   // GIC ITS
@@ -359,6 +369,11 @@ EDKII_PLATFORM_REPOSITORY_INFO VExpressPlatRepositoryInfo = {
     FixedPcdGet32 (PcdPciBusMin),
     FixedPcdGet32 (PcdPciBusMax)
   },
+
+  // Embedded Trace device info
+  {
+    ArmEtTypeEte
+  }
 };
 
 /** A helper function for returning the Configuration Manager Objects.
@@ -468,6 +483,9 @@ InitializePlatformRepository (
   )
 {
   EDKII_PLATFORM_REPOSITORY_INFO  * PlatformRepo;
+  UINTN  Index;
+  UINT16 TrbeInterrupt;
+  CM_OBJECT_TOKEN EtToken;
 
   PlatformRepo = This->PlatRepoInfo;
 
@@ -485,6 +503,26 @@ InitializePlatformRepository (
     PlatformRepo->GicCInfo[6].MPIDR = GET_MPID_MT (1, 2, 0);
     PlatformRepo->GicCInfo[7].MPIDR = GET_MPID_MT (1, 3, 0);
   }
+
+  TrbeInterrupt = 0;
+  EtToken = CM_NULL_TOKEN;
+
+  // The ID_AA64DFR0_EL1.TraceBuffer field identifies support for FEAT_TRBE.
+  if (ArmHasTrbe ()) {
+    // TRBE Interrupt is PPI 15 on FVP model.
+    TrbeInterrupt = 31;
+  }
+
+  // The ID_AA64DFR0_EL1.TraceVer field identifies the presence of FEAT_ETE.
+  if (ArmHasEte ()) {
+    EtToken = (CM_OBJECT_TOKEN)&PlatformRepo->EtInfo;
+  }
+
+  for (Index = 0; Index < PLAT_CPU_COUNT; Index++) {
+    PlatformRepo->GicCInfo[Index].TrbeInterrupt = TrbeInterrupt;
+    PlatformRepo->GicCInfo[Index].EtToken = EtToken;
+  }
+
   return EFI_SUCCESS;
 }
 
@@ -696,6 +734,116 @@ GetStandardNameSpaceObject (
   return Status;
 }
 
+/** Return an Arch Common namespace object.
+
+  @param [in]      This        Pointer to the Configuration Manager Protocol.
+  @param [in]      CmObjectId  The Configuration Manager Object ID.
+  @param [in]      Token       An optional token identifying the object. If
+                               unused this must be CM_NULL_TOKEN.
+  @param [in, out] CmObject    Pointer to the Configuration Manager Object
+                               descriptor describing the requested Object.
+
+  @retval EFI_SUCCESS           Success.
+  @retval EFI_INVALID_PARAMETER A parameter is invalid.
+  @retval EFI_NOT_FOUND         The required object information is not found.
+**/
+EFI_STATUS
+EFIAPI
+GetArchCommonNameSpaceObject (
+  IN  CONST EDKII_CONFIGURATION_MANAGER_PROTOCOL  * CONST This,
+  IN  CONST CM_OBJECT_ID                                  CmObjectId,
+  IN  CONST CM_OBJECT_TOKEN                               Token OPTIONAL,
+  IN  OUT   CM_OBJ_DESCRIPTOR                     * CONST CmObject
+  )
+{
+  EFI_STATUS                        Status;
+  EDKII_PLATFORM_REPOSITORY_INFO  * PlatformRepo;
+  UINTN                             PciConfigSpaceCount;
+
+  if ((This == NULL) || (CmObject == NULL)) {
+    ASSERT (This != NULL);
+    ASSERT (CmObject != NULL);
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = EFI_NOT_FOUND;
+  PlatformRepo = This->PlatRepoInfo;
+
+  if ((PlatformRepo->SysId & ARM_FVP_SYS_ID_REV_MASK) ==
+       ARM_FVP_BASE_REVC_REV) {
+    PciConfigSpaceCount = 1;
+  } else {
+    PciConfigSpaceCount = 0;
+  }
+
+  switch (GET_CM_OBJECT_ID (CmObjectId)) {
+    case EArchCommonObjPowerManagementProfileInfo:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 &PlatformRepo->PmProfileInfo,
+                 sizeof (PlatformRepo->PmProfileInfo),
+                 1,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjConsolePortInfo:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 &PlatformRepo->SpcrSerialPort,
+                 sizeof (PlatformRepo->SpcrSerialPort),
+                 1,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjSerialDebugPortInfo:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 &PlatformRepo->DbgSerialPort,
+                 sizeof (PlatformRepo->DbgSerialPort),
+                 1,
+                 CmObject
+                 );
+      break;
+
+#ifdef HEADLESS_PLATFORM
+    case EArchCommonObjFixedFeatureFlags:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 &PlatformRepo->FixedFeatureFlags,
+                 sizeof (PlatformRepo->FixedFeatureFlags),
+                 1,
+                 CmObject
+                 );
+      break;
+#endif
+
+    case EArchCommonObjPciConfigSpaceInfo:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 &PlatformRepo->PciConfigInfo,
+                 sizeof (PlatformRepo->PciConfigInfo),
+                 PciConfigSpaceCount,
+                 CmObject
+                 );
+      break;
+
+    default: {
+      Status = EFI_NOT_FOUND;
+      DEBUG ((
+        DEBUG_INFO,
+        "INFO: Object 0x%x. Status = %r\n",
+        CmObjectId,
+        Status
+        ));
+      break;
+    }
+  } //switch
+
+  return Status;
+}
+
 /** Return an ARM namespace object.
 
   @param [in]      This        Pointer to the Configuration Manager Protocol.
@@ -725,7 +873,6 @@ GetArmNameSpaceObject (
   UINTN                             ItsIdentifierArrayCount;
   UINTN                             RootComplexCount;
   UINTN                             DeviceIdMappingArrayCount;
-  UINTN                             PciConfigSpaceCount;
 
   if ((This == NULL) || (CmObject == NULL)) {
     ASSERT (This != NULL);
@@ -743,14 +890,12 @@ GetArmNameSpaceObject (
     ItsIdentifierArrayCount = ARRAY_SIZE (PlatformRepo->ItsIdentifierArray);
     RootComplexCount = 1;
     DeviceIdMappingArrayCount = ARRAY_SIZE (PlatformRepo->DeviceIdMapping);
-    PciConfigSpaceCount = 1;
   } else {
     Smmuv3Count = 0;
     ItsGroupCount = 0;
     ItsIdentifierArrayCount = 0;
     RootComplexCount = 0;
     DeviceIdMappingArrayCount = 0;
-    PciConfigSpaceCount = 0;
   }
 
   switch (GET_CM_OBJECT_ID (CmObjectId)) {
@@ -759,27 +904,6 @@ GetArmNameSpaceObject (
                  CmObjectId,
                  &PlatformRepo->BootArchInfo,
                  sizeof (PlatformRepo->BootArchInfo),
-                 1,
-                 CmObject
-                 );
-      break;
-
-#ifdef HEADLESS_PLATFORM
-    case EArmObjFixedFeatureFlags:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 &PlatformRepo->FixedFeatureFlags,
-                 sizeof (PlatformRepo->FixedFeatureFlags),
-                 1,
-                 CmObject
-                 );
-      break;
-#endif
-    case EArmObjPowerManagementProfileInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 &PlatformRepo->PmProfileInfo,
-                 sizeof (PlatformRepo->PmProfileInfo),
                  1,
                  CmObject
                  );
@@ -858,26 +982,6 @@ GetArmNameSpaceObject (
                  );
       break;
 
-    case EArmObjSerialConsolePortInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 &PlatformRepo->SpcrSerialPort,
-                 sizeof (PlatformRepo->SpcrSerialPort),
-                 1,
-                 CmObject
-                 );
-      break;
-
-    case EArmObjSerialDebugPortInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 &PlatformRepo->DbgSerialPort,
-                 sizeof (PlatformRepo->DbgSerialPort),
-                 1,
-                 CmObject
-                 );
-      break;
-
     case EArmObjGicItsInfo:
       Status = HandleCmObject (
                  CmObjectId,
@@ -944,14 +1048,16 @@ GetArmNameSpaceObject (
                  );
       break;
 
-    case EArmObjPciConfigSpaceInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 &PlatformRepo->PciConfigInfo,
-                 sizeof (PlatformRepo->PciConfigInfo),
-                 PciConfigSpaceCount,
-                 CmObject
-                 );
+    case EArmObjEtInfo:
+      if (Token == (CM_OBJECT_TOKEN)&PlatformRepo->EtInfo) {
+        Status = HandleCmObject (
+                  CmObjectId,
+                  &PlatformRepo->EtInfo,
+                  sizeof (PlatformRepo->EtInfo),
+                  1,
+                  CmObject
+                  );
+      }
       break;
 
     default: {
@@ -1055,6 +1161,9 @@ ArmVExpressPlatformGetObject (
     case EObjNameSpaceStandard:
       Status = GetStandardNameSpaceObject (This, CmObjectId, Token, CmObject);
       break;
+    case EObjNameSpaceArchCommon:
+      Status = GetArchCommonNameSpaceObject (This, CmObjectId, Token, CmObject);
+      break;
     case EObjNameSpaceArm:
       Status = GetArmNameSpaceObject (This, CmObjectId, Token, CmObject);
       break;
@@ -1132,6 +1241,19 @@ ConfigurationManagerDxeInitialize (
 {
   EFI_STATUS  Status;
 
+  Status = InitializePlatformRepository (
+             &VExpressPlatformConfigManagerProtocol
+             );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "ERROR: Failed to initialize the Platform Configuration Repository." \
+      " Status = %r\n",
+      Status
+      ));
+    return Status;
+  }
+
   Status = gBS->InstallProtocolInterface (
                   &ImageHandle,
                   &gEdkiiConfigurationManagerProtocolGuid,
@@ -1145,21 +1267,7 @@ ConfigurationManagerDxeInitialize (
       " Status = %r\n",
       Status
       ));
-    goto error_handler;
   }
 
-  Status = InitializePlatformRepository (
-    &VExpressPlatformConfigManagerProtocol
-    );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((
-      DEBUG_ERROR,
-      "ERROR: Failed to initialize the Platform Configuration Repository." \
-      " Status = %r\n",
-      Status
-      ));
-  }
-
-error_handler:
   return Status;
 }

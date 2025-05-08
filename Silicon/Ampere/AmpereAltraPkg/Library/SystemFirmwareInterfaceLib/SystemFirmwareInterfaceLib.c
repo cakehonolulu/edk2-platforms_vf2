@@ -1,7 +1,7 @@
 /** @file
   Provides functions for communication with System Firmware (SMpro/PMpro and ATF).
 
-  Copyright (c) 2021, Ampere Computing LLC. All rights reserved.<BR>
+  Copyright (c) 2021 - 2024, Ampere Computing LLC. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -15,6 +15,19 @@
 #include <Library/DebugLib.h>
 #include <Library/MailboxInterfaceLib.h>
 #include <Library/SystemFirmwareInterfaceLib.h>
+
+#define SMPRO_RTC_YEAR_SHIFT   16
+#define SMPRO_RTC_YEAR_MASK    0xFFFF0000
+#define SMPRO_RTC_MONTH_SHIFT  8
+#define SMPRO_RTC_MONTH_MASK   0x0000FF00
+#define SMPRO_RTC_DAY_SHIFT    0
+#define SMPRO_RTC_DAY_MASK     0x000000FF
+
+#define CONVERT_EFI_TIME_TO_SMPRO_DATE(x) \
+          (((x)->Year << SMPRO_RTC_YEAR_SHIFT) & SMPRO_RTC_YEAR_MASK) | \
+          (((x)->Month << SMPRO_RTC_MONTH_SHIFT) & SMPRO_RTC_MONTH_MASK) | \
+          (((x)->Day << SMPRO_RTC_DAY_SHIFT) & SMPRO_RTC_DAY_MASK)
+#define MAILBOX_TRNG_MESSAGE_PARAM1_MASK  0x000000FF
 
 /**
   Read a register which is not accessible from the non-secure world
@@ -33,15 +46,15 @@
 EFI_STATUS
 EFIAPI
 MailboxMsgRegisterRead (
-  IN  UINT8  Socket,
-  IN  UINTN  Address,
-  OUT UINT32 *Value
+  IN  UINT8   Socket,
+  IN  UINTN   Address,
+  OUT UINT32  *Value
   )
 {
-  EFI_STATUS           Status;
-  MAILBOX_MESSAGE_DATA Message;
-  UINT32               AddressLower32Bit;
-  UINT32               AddressUpper32Bit;
+  EFI_STATUS            Status;
+  MAILBOX_MESSAGE_DATA  Message;
+  UINT32                AddressLower32Bit;
+  UINT32                AddressUpper32Bit;
 
   if (Socket >= GetNumberOfActiveSockets ()) {
     return EFI_INVALID_PARAMETER;
@@ -98,15 +111,15 @@ MailboxMsgRegisterRead (
 EFI_STATUS
 EFIAPI
 MailboxMsgRegisterWrite (
-  IN UINT8  Socket,
-  IN UINTN  Address,
-  IN UINT32 Value
+  IN UINT8   Socket,
+  IN UINTN   Address,
+  IN UINT32  Value
   )
 {
-  EFI_STATUS           Status;
-  MAILBOX_MESSAGE_DATA Message;
-  UINT32               AddressLower32Bit;
-  UINT32               AddressUpper32Bit;
+  EFI_STATUS            Status;
+  MAILBOX_MESSAGE_DATA  Message;
+  UINT32                AddressLower32Bit;
+  UINT32                AddressUpper32Bit;
 
   if (Socket >= GetNumberOfActiveSockets ()) {
     return EFI_INVALID_PARAMETER;
@@ -145,26 +158,26 @@ MailboxMsgRegisterWrite (
 EFI_STATUS
 EFIAPI
 MailboxMsgSetPccSharedMem (
-  IN UINT8     Socket,
-  IN UINT8     Doorbell,
-  IN BOOLEAN   AddressAlign256,
-  IN UINTN     Address
+  IN UINT8    Socket,
+  IN UINT8    Doorbell,
+  IN BOOLEAN  AddressAlign256,
+  IN UINTN    Address
   )
 {
-  EFI_STATUS           Status;
-  MAILBOX_MESSAGE_DATA Message;
-  UINT8                AlignBit;
-  UINT8                AlignControl;
+  EFI_STATUS            Status;
+  MAILBOX_MESSAGE_DATA  Message;
+  UINT8                 AlignBit;
+  UINT8                 AlignControl;
 
-  if (Socket >= GetNumberOfActiveSockets () || Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET) {
+  if ((Socket >= GetNumberOfActiveSockets ()) || (Doorbell >= NUMBER_OF_DOORBELLS_PER_SOCKET)) {
     return EFI_INVALID_PARAMETER;
   }
 
   if (AddressAlign256) {
-    AlignBit = 8;
+    AlignBit     = 8;
     AlignControl = MAILBOX_ADDRESS_256_ALIGNMENT;
   } else {
-    AlignBit = 0;
+    AlignBit     = 0;
     AlignControl = MAILBOX_ADDRESS_NO_ALIGNMENT;
   }
 
@@ -196,11 +209,11 @@ MailboxMsgSetPccSharedMem (
 EFI_STATUS
 EFIAPI
 MailboxMsgGetRandomNumber64 (
-  OUT UINT8 *Buffer
+  OUT UINT8  *Buffer
   )
 {
-  EFI_STATUS           Status;
-  MAILBOX_MESSAGE_DATA Message;
+  EFI_STATUS            Status;
+  MAILBOX_MESSAGE_DATA  Message;
 
   if (Buffer == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -226,6 +239,10 @@ MailboxMsgGetRandomNumber64 (
     return Status;
   }
 
+  if ((Message.Data & MAILBOX_TRNG_MESSAGE_PARAM1_MASK) != 0) {
+    return EFI_DEVICE_ERROR;
+  }
+
   CopyMem (Buffer, &Message.ExtendedData[0], sizeof (UINT32));
   CopyMem (Buffer + sizeof (UINT32), &Message.ExtendedData[1], sizeof (UINT32));
 
@@ -236,7 +253,8 @@ MailboxMsgGetRandomNumber64 (
   Report the UEFI boot progress to the SMpro.
 
   @param[in]  Socket           Active socket index.
-  @param[in]  BootStatus       The status of the UEFI boot.
+  @param[in]  BootStage        The stage of the system.
+  @param[in]  BootStatus       The status of the stage.
   @param[in]  Checkpoint       The UEFI Checkpoint value.
 
   @retval EFI_SUCCESS           Set the boot progress successfully.
@@ -247,12 +265,13 @@ EFI_STATUS
 EFIAPI
 MailboxMsgSetBootProgress (
   IN UINT8   Socket,
+  IN UINT8   BootStage,
   IN UINT8   BootStatus,
   IN UINT32  Checkpoint
   )
 {
-  EFI_STATUS           Status;
-  MAILBOX_MESSAGE_DATA Message;
+  EFI_STATUS            Status;
+  MAILBOX_MESSAGE_DATA  Message;
 
   if (Socket >= GetNumberOfActiveSockets ()) {
     return EFI_INVALID_PARAMETER;
@@ -261,7 +280,7 @@ MailboxMsgSetBootProgress (
   Message.Data = MAILBOX_USER_MESSAGE_ENCODE (
                    MAILBOX_USER_MESSAGE_SUBTYPE_BOOT_PROGRESS,
                    MAILBOX_BOOT_PROGRESS_COMMAND_SET,
-                   MAILBOX_BOOT_PROGRESS_STAGE_UEFI
+                   BootStage
                    );
 
   //
@@ -285,43 +304,41 @@ MailboxMsgSetBootProgress (
 }
 
 /**
-  Configure the Turbo (Max Performance) mode.
+  Configure date in SMpro/PMpro.
 
-  @param[in]  Socket           Active socket index.
-  @param[in]  Enable           Enable/Disable the Turbo (Max performance) mode.
+  @param[in]  Time              A pointer to the date time for configuration.
 
-  @retval EFI_SUCCESS           Configure the Turbo successfully.
-  @retval EFI_INVALID_PARAMETER A parameter is invalid.
+  @retval EFI_SUCCESS           Configure the date successfully.
+  @retval EFI_INVALID_PARAMETER The time parameter is NULL.
   @retval Otherwise             Errors returned from the MailboxWrite() functions.
+
 **/
 EFI_STATUS
 EFIAPI
-MailboxMsgTurboConfig (
-  IN UINT8   Socket,
-  IN BOOLEAN Enable
+MailboxMsgDateConfig (
+  IN EFI_TIME  *Time
   )
 {
-  EFI_STATUS           Status;
-  MAILBOX_MESSAGE_DATA Message;
+  EFI_STATUS            Status;
+  MAILBOX_MESSAGE_DATA  Message;
+  UINT32                Date;
 
-  if (Socket >= GetNumberOfSupportedSockets ()) {
+  if (Time == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
   Message.Data = MAILBOX_USER_MESSAGE_ENCODE (
                    MAILBOX_USER_MESSAGE_SUBTYPE_SET_CONFIGURATION,
-                   MAILBOX_SET_CONFIGURATION_TURBO,
+                   MAILBOX_SET_CONFIGURATION_DATE,
                    0
                    );
 
-  //
-  // The Turbo configuration is written into the extended data 0.
-  // The extended data 1 is unused.
-  //
-  Message.ExtendedData[0] = Enable ? 1 : 0;
+  Date = CONVERT_EFI_TIME_TO_SMPRO_DATE (Time);
+
+  Message.ExtendedData[0] = Date;
   Message.ExtendedData[1] = 0;
 
-  Status = MailboxWrite (Socket, PMproDoorbellChannel1, &Message);
+  Status = MailboxWrite (0, PMproDoorbellChannel1, &Message);
   ASSERT_EFI_ERROR (Status);
 
   return Status;

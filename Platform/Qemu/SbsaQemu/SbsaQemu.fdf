@@ -21,10 +21,10 @@
 
 [FD.SBSA_FLASH0]
 BaseAddress   = 0x00000000
-Size          = 0x00200000
+Size          = 0x00800000
 ErasePolarity = 1
 BlockSize     = 0x00001000
-NumBlocks     = 0x200
+NumBlocks     = 0x800
 
 ################################################################################
 #
@@ -43,11 +43,11 @@ NumBlocks     = 0x200
 ################################################################################
 ## Place for Trusted Firmware
 # flash0 is secure so we put here the BL1
-0x00000000|0x00008000
+0x00000000|0x00012000
 FILE = Platform/Qemu/Sbsa/bl1.bin
 
-# and FIP (BL2 + BL31)
-0x00008000|0x00020000
+# and FIP (BL2 + BL31 + RMM (if present))
+0x00012000|0x007EE000
 FILE = Platform/Qemu/Sbsa/fip.bin
 
 ################################################################################
@@ -58,20 +58,20 @@ FILE = Platform/Qemu/Sbsa/fip.bin
 
 [FD.SBSA_FLASH1]
 BaseAddress   = 0x10000000|gArmTokenSpaceGuid.PcdFdBaseAddress
-Size          = 0x002C0000|gArmTokenSpaceGuid.PcdFdSize
+Size          = 0x003C0000|gArmTokenSpaceGuid.PcdFdSize
 ErasePolarity = 1
 BlockSize     = 0x00001000
-NumBlocks     = 0x2C0
+NumBlocks     = 0x3C0
 
 ## Place for EFI (BL33)
 # This offset (if any as it is 0x0 currently) + BaseAddress (0x10000000) must be set in PRELOADED_BL33_BASE at ATF
-0x00000000|0x00200000
+0x00000000|0x00300000
 gArmTokenSpaceGuid.PcdFvBaseAddress|gArmTokenSpaceGuid.PcdFvSize
 FV = FVMAIN_COMPACT
 
 ## Place for Variables. They share flash1 with EFI
 # Must be aligned to Flash Block size 0x40000
-0x00200000|0x00040000
+0x00300000|0x00040000
 gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase|gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
 #NV_VARIABLE_STORE
 DATA = {
@@ -109,7 +109,7 @@ DATA = {
   0x5A, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 }
 
-0x00240000|0x00040000
+0x00340000|0x00040000
 gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase|gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize
 #NV_FTW_WORKING
 DATA = {
@@ -123,7 +123,7 @@ DATA = {
   0xE0, 0xFF, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00
 }
 
-0x00280000|0x00040000
+0x00380000|0x00040000
 gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase|gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
 #NV_FTW_SPARE
 
@@ -161,6 +161,7 @@ READ_LOCK_STATUS   = TRUE
 
   INF MdeModulePkg/Core/Dxe/DxeMain.inf
   INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+  INF Silicon/Qemu/SbsaQemu/Drivers/SbsaQemuHighMemDxe/SbsaQemuHighMemDxe.inf
 
   #
   # PI DXE Drivers producing Architectural Protocols (EFI Services)
@@ -187,10 +188,11 @@ READ_LOCK_STATUS   = TRUE
   INF MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
   INF MdeModulePkg/Universal/SerialDxe/SerialDxe.inf
 
-  INF ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
+  INF ArmPkg/Drivers/ArmGicDxe/ArmGicV3Dxe.inf
   INF ArmPkg/Drivers/TimerDxe/TimerDxe.inf
   INF OvmfPkg/VirtNorFlashDxe/VirtNorFlashDxe.inf
   INF MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
+  INF SecurityPkg/RandomNumberGenerator/RngDxe/RngDxe.inf
 
   #
   # FAT filesystem + GPT/MBR partitioning + UDF filesystem
@@ -252,6 +254,11 @@ READ_LOCK_STATUS   = TRUE
   INF MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
 
   #
+  # NVME support
+  #
+  INF  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
+
+  #
   # USB Support
   #
   INF MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
@@ -289,7 +296,7 @@ READ_STATUS        = TRUE
 READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 
-  INF ArmPlatformPkg/PrePeiCore/PrePeiCoreUniCore.inf
+  INF ArmPlatformPkg/Sec/Sec.inf
   INF MdeModulePkg/Core/Pei/PeiMain.inf
   INF ArmPlatformPkg/PlatformPei/PlatformPeim.inf
   INF ArmPlatformPkg/MemoryInitPei/MemoryInitPeim.inf
@@ -298,7 +305,7 @@ READ_LOCK_STATUS   = TRUE
   INF MdeModulePkg/Core/DxeIplPeim/DxeIpl.inf
 
   # IDE/AHCI Support
-  INF OvmfPkg/SataControllerDxe/SataControllerDxe.inf
+  INF MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
   INF MdeModulePkg/Bus/Ata/AtaAtapiPassThru/AtaAtapiPassThru.inf
   INF MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
   INF MdeModulePkg/Bus/Scsi/ScsiBusDxe/ScsiBusDxe.inf

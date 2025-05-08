@@ -83,4 +83,21 @@ AcpiInstallIort (
   VOID
   );
 
+/**
+  Install SPMI (Service Processor Management Interface table) table.
+
+  @retval EFI_SUCCESS   The table was installed successfully.
+  @retval Others        Failed to install the table.
+
+**/
+EFI_STATUS
+AcpiInstallSpmiTable (
+  VOID
+  );
+
+EFI_STATUS
+AcpiInstallBdatTable (
+  VOID
+  );
+
 #endif /* ACPI_PLATFORM_H_ */

@@ -33,7 +33,10 @@
 #
 ################################################################################
 [PcdsFixedAtBuild]
-  !include NetworkPkg/NetworkPcds.dsc.inc
+  !include NetworkPkg/NetworkFixedPcds.dsc.inc
+
+[PcdsDynamicDefault]
+  !include NetworkPkg/NetworkDynamicPcds.dsc.inc
 
 ################################################################################
 #
@@ -63,10 +66,7 @@
 #
 # Feature DXE Components
 #
-
-# @todo: Change below line to [Components.$(DXE_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed.
-[Components.X64]
+[Components.$(DXE_ARCH)]
   #####################################
   # Network Feature Package
   #####################################

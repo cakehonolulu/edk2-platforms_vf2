@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2020-2022, ARM Limited. All rights reserved.
+#  Copyright (c) 2020-2024, Arm Limited. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -22,12 +22,14 @@
   BOARD_DXE_FV_COMPONENTS        = Platform/ARM/SgiPkg/Sgi575/Sgi575.fdf.inc
   BUILD_NUMBER                   = 1
 
-# include common definitions from SgiPlatform.dsc
-!include Platform/ARM/SgiPkg/SgiPlatform.dsc.inc
-!include Platform/ARM/SgiPkg/SgiMemoryMap.dsc.inc
+  DEFINE PCIE_ENABLE             = TRUE
 
 # include common/basic libraries from MdePkg.
 !include MdePkg/MdeLibs.dsc.inc
+
+# include common definitions from SgiPlatform.dsc
+!include Platform/ARM/SgiPkg/SgiPlatform.dsc.inc
+!include Platform/ARM/SgiPkg/SgiMemoryMap.dsc.inc
 
 ################################################################################
 #

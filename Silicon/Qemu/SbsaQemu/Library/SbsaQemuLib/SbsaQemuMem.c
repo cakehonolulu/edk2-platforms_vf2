@@ -12,10 +12,10 @@
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
-#include <libfdt.h>
+#include <Library/HardwareInfoLib.h>
 
 // Number of Virtual Memory Map Descriptors
-#define MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS          4
+#define MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS  4
 
 RETURN_STATUS
 EFIAPI
@@ -23,53 +23,25 @@ SbsaQemuLibConstructor (
   VOID
   )
 {
-  VOID          *DeviceTreeBase;
-  INT32         Node, Prev;
-  UINT64        NewBase, CurBase;
-  UINT64        NewSize, CurSize;
-  CONST CHAR8   *Type;
-  INT32         Len;
-  CONST UINT64  *RegProp;
-  RETURN_STATUS PcdStatus;
+  UINT64         NewBase, CurBase;
+  UINT64         NewSize, CurSize;
+  UINT32         NumMemNodes;
+  UINT32         Index;
+  MemoryInfo     MemInfo;
+  RETURN_STATUS  PcdStatus;
 
   NewBase = 0;
   NewSize = 0;
 
-  DeviceTreeBase = (VOID *)(UINTN)PcdGet64 (PcdDeviceTreeBaseAddress);
-  ASSERT (DeviceTreeBase != NULL);
+  NumMemNodes = GetMemNodeCount ();
+  for (Index = 0; Index < NumMemNodes; Index++) {
+    GetMemInfo (Index, &MemInfo);
+    CurBase = MemInfo.AddressBase;
+    CurSize = MemInfo.AddressSize;
 
-  // Make sure we have a valid device tree blob
-  ASSERT (fdt_check_header (DeviceTreeBase) == 0);
-
-  // Look for the lowest memory node
-  for (Prev = 0;; Prev = Node) {
-    Node = fdt_next_node (DeviceTreeBase, Prev, NULL);
-    if (Node < 0) {
-      break;
-    }
-
-    // Check for memory node
-    Type = fdt_getprop (DeviceTreeBase, Node, "device_type", &Len);
-    if (Type && AsciiStrnCmp (Type, "memory", Len) == 0) {
-      // Get the 'reg' property of this node. For now, we will assume
-      // two 8 byte quantities for base and size, respectively.
-      RegProp = fdt_getprop (DeviceTreeBase, Node, "reg", &Len);
-      if (RegProp != 0 && Len == (2 * sizeof (UINT64))) {
-
-        CurBase = fdt64_to_cpu (ReadUnaligned64 (RegProp));
-        CurSize = fdt64_to_cpu (ReadUnaligned64 (RegProp + 1));
-
-        DEBUG ((DEBUG_INFO, "%a: System RAM @ 0x%lx - 0x%lx\n",
-          __FUNCTION__, CurBase, CurBase + CurSize - 1));
-
-        if (NewBase > CurBase || NewBase == 0) {
-          NewBase = CurBase;
-          NewSize = CurSize;
-        }
-      } else {
-        DEBUG ((DEBUG_ERROR, "%a: Failed to parse FDT memory node\n",
-          __FUNCTION__));
-      }
+    if ((NewBase > CurBase) || (NewBase == 0)) {
+      NewBase = CurBase;
+      NewSize = CurSize;
     }
   }
 
@@ -96,18 +68,20 @@ SbsaQemuLibConstructor (
 **/
 VOID
 ArmPlatformGetVirtualMemoryMap (
-  OUT ARM_MEMORY_REGION_DESCRIPTOR   **VirtualMemoryMap
+  OUT ARM_MEMORY_REGION_DESCRIPTOR  **VirtualMemoryMap
   )
 {
   ARM_MEMORY_REGION_DESCRIPTOR  *VirtualMemoryTable;
 
   ASSERT (VirtualMemoryMap != NULL);
 
-  VirtualMemoryTable = AllocatePool (sizeof (ARM_MEMORY_REGION_DESCRIPTOR) *
-                                     MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS);
+  VirtualMemoryTable = AllocatePool (
+                         sizeof (ARM_MEMORY_REGION_DESCRIPTOR) *
+                         MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS
+                         );
 
   if (VirtualMemoryTable == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Error: Failed AllocatePool()\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Error: Failed AllocatePool()\n", __func__));
     return;
   }
 
@@ -117,14 +91,17 @@ ArmPlatformGetVirtualMemoryMap (
   VirtualMemoryTable[0].Length       = PcdGet64 (PcdSystemMemorySize);
   VirtualMemoryTable[0].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
 
-  DEBUG ((DEBUG_INFO, "%a: Dumping System DRAM Memory Map:\n"
-          "\tPhysicalBase: 0x%lX\n"
-          "\tVirtualBase: 0x%lX\n"
-          "\tLength: 0x%lX\n",
-          __FUNCTION__,
-          VirtualMemoryTable[0].PhysicalBase,
-          VirtualMemoryTable[0].VirtualBase,
-          VirtualMemoryTable[0].Length));
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: Dumping System DRAM Memory Map:\n"
+    "\tPhysicalBase: 0x%lX\n"
+    "\tVirtualBase: 0x%lX\n"
+    "\tLength: 0x%lX\n",
+    __func__,
+    VirtualMemoryTable[0].PhysicalBase,
+    VirtualMemoryTable[0].VirtualBase,
+    VirtualMemoryTable[0].Length
+    ));
 
   // Peripheral space before DRAM
   VirtualMemoryTable[1].PhysicalBase = 0x0;

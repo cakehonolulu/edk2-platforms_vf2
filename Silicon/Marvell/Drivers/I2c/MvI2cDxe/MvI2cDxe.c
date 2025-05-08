@@ -174,7 +174,7 @@ OnEndOfDxe (
     Status = gBS->ConnectController (DeviceHandle, NULL, NULL, TRUE);
     DEBUG ((DEBUG_INFO,
       "%a: ConnectController () returned %r\n",
-      __FUNCTION__,
+      __func__,
       Status));
 
     DevicePath->Instance++;
@@ -777,7 +777,7 @@ MvI2cEnableConf (
 {
   /* do nothing */
   if (I2cStatus != NULL)
-    I2cStatus = EFI_SUCCESS;
+    *I2cStatus = EFI_SUCCESS;
   if (Event != NULL)
     gBS->SignalEvent(Event);
   return EFI_SUCCESS;

@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2018 - 2021, ARM Limited. All rights reserved.<BR>
+  Copyright (c) 2018 - 2024, ARM Limited. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -10,10 +10,11 @@
 #include <Library/DebugLib.h>
 #include <Library/HobLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/PeiServicesLib.h>
 #include <NeoverseN1Soc.h>
 
 // The total number of descriptors, including the final "end-of-table" descriptor.
-#define MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS 19
+#define MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS 20
 
 /**
   Returns the Virtual Memory Map of the platform.
@@ -30,15 +31,33 @@ ArmPlatformGetVirtualMemoryMap (
   IN     ARM_MEMORY_REGION_DESCRIPTOR  **VirtualMemoryMap
   )
 {
-  UINTN                         Index;
-  ARM_MEMORY_REGION_DESCRIPTOR  *VirtualMemoryTable;
-  EFI_RESOURCE_ATTRIBUTE_TYPE   ResourceAttributes;
-  NEOVERSEN1SOC_PLAT_INFO       *PlatInfo;
-  UINT64                        DramBlock2Size;
-  UINT64                        RemoteDdrSize;
+  UINTN                          Index;
+  ARM_MEMORY_REGION_DESCRIPTOR   *VirtualMemoryTable;
+  EFI_RESOURCE_ATTRIBUTE_TYPE    ResourceAttributes;
+  CONST NEOVERSEN1SOC_PLAT_INFO  *PlatInfo;
+  UINT64                         DramBlock2Size;
+  UINT64                         RemoteDdrSize;
+  EFI_STATUS                     Status;
 
   Index = 0;
-  PlatInfo = (NEOVERSEN1SOC_PLAT_INFO *)NEOVERSEN1SOC_PLAT_INFO_STRUCT_BASE;
+
+  Status = PeiServicesLocatePpi (
+             &gArmNeoverseN1SocPlatformInfoDescriptorPpiGuid,
+             0,
+             NULL,
+             (VOID **)&PlatInfo
+             );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "[%a]: failed to locate gArmNeoverseN1SocPlatformInfoDescriptorPpiGuid - %r\n",
+      gEfiCallerBaseName,
+      Status
+      ));
+      *VirtualMemoryMap = NULL;
+      return;
+  }
+
   DramBlock2Size = ((UINT64)(PlatInfo->LocalDdrSize -
                              NEOVERSEN1SOC_DRAM_BLOCK1_SIZE / SIZE_1GB) *
                             (UINT64)SIZE_1GB);
@@ -58,7 +77,7 @@ ArmPlatformGetVirtualMemoryMap (
     DramBlock2Size);
 
   if (PlatInfo->MultichipMode == 1) {
-    RemoteDdrSize = ((PlatInfo->RemoteDdrSize - 2) * SIZE_1GB);
+    RemoteDdrSize = ((UINT64)(PlatInfo->RemoteDdrSize - 2) * SIZE_1GB);
 
     BuildResourceDescriptorHob (
       EFI_RESOURCE_SYSTEM_MEMORY,
@@ -182,6 +201,12 @@ ArmPlatformGetVirtualMemoryMap (
   VirtualMemoryTable[++Index].PhysicalBase  = NEOVERSEN1SOC_EXP_PERIPH_BASE0;
   VirtualMemoryTable[Index].VirtualBase     = NEOVERSEN1SOC_EXP_PERIPH_BASE0;
   VirtualMemoryTable[Index].Length          = NEOVERSEN1SOC_EXP_PERIPH_BASE0_SZ;
+  VirtualMemoryTable[Index].Attributes      = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
+
+  // SCP QSPI flash device
+  VirtualMemoryTable[++Index].PhysicalBase  = NEOVERSEN1SOC_SCP_QSPI_AHB_BASE;
+  VirtualMemoryTable[Index].VirtualBase     = NEOVERSEN1SOC_SCP_QSPI_AHB_BASE;
+  VirtualMemoryTable[Index].Length          = NEOVERSEN1SOC_SCP_QSPI_AHB_SZ;
   VirtualMemoryTable[Index].Attributes      = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
 
   if (PlatInfo->MultichipMode == 1) {

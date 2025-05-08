@@ -1,7 +1,7 @@
 /** @file
   Memory Detection for Virtual Machines.
 
-  Copyright (c) 2006 - 2019 Intel Corporation. All rights reserved. <BR>
+  Copyright (c) 2006 - 2023 Intel Corporation. All rights reserved. <BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
@@ -25,6 +25,7 @@
 #include <Library/CmosAccessLib.h>
 #include <SimicsPlatforms.h>
 #include <Guid/SmramMemoryReserve.h>
+#include <Library/SmmAccessLib.h>
 
 #include <CmosMap.h>
 
@@ -48,7 +49,7 @@ X58TsegMbytesInitialization(
       DEBUG_ERROR,
       "%a: no TSEG (SMRAM) on host bridge DID=0x%04x; "
       "only DID=0x%04x (X58) is supported\n",
-      __FUNCTION__,
+      __func__,
       mHostBridgeDevId,
       INTEL_ICH10_DEVICE_ID
       ));
@@ -153,8 +154,8 @@ GetFirstNonAddress (
 
   if (Pci64Size == 0) {
     if (mBootMode != BOOT_ON_S3_RESUME) {
-      DEBUG ((EFI_D_INFO, "%a: disabling 64-bit PCI host aperture\n",
-        __FUNCTION__));
+      DEBUG ((DEBUG_INFO, "%a: disabling 64-bit PCI host aperture\n",
+        __func__));
       PcdSet64S (PcdPciMmio64Size, 0);
     }
 
@@ -189,8 +190,8 @@ GetFirstNonAddress (
     //
     PcdSet64S (PcdPciMmio64Base, Pci64Base);
     PcdSet64S (PcdPciMmio64Size, Pci64Size);
-    DEBUG ((EFI_D_INFO, "%a: Pci64Base=0x%Lx Pci64Size=0x%Lx\n",
-      __FUNCTION__, Pci64Base, Pci64Size));
+    DEBUG ((DEBUG_INFO, "%a: Pci64Base=0x%Lx Pci64Size=0x%Lx\n",
+      __func__, Pci64Base, Pci64Size));
   }
 
   //
@@ -349,8 +350,8 @@ PublishPeiMemory (
     MemorySize = mS3AcpiReservedMemorySize;
   } else {
     PeiMemoryCap = GetPeiMemoryCap ();
-    DEBUG ((EFI_D_INFO, "%a: mPhysMemAddressWidth=%d PeiMemoryCap=%u KB\n",
-      __FUNCTION__, mPhysMemAddressWidth, PeiMemoryCap >> 10));
+    DEBUG ((DEBUG_INFO, "%a: mPhysMemAddressWidth=%d PeiMemoryCap=%u KB\n",
+      __func__, mPhysMemAddressWidth, PeiMemoryCap >> 10));
 
     //
     // Determine the range of memory to use during PEI
@@ -367,7 +368,7 @@ PublishPeiMemory (
       PcdGet32 (PcdSimicsDxeMemFvBase) + PcdGet32 (PcdSimicsDxeMemFvSize);
     MemorySize = LowerMemorySize - MemoryBase;
   }
-  DEBUG((EFI_D_INFO, "MemoryBase=0x%lx MemorySize=0x%lx\n", MemoryBase, MemorySize));
+  DEBUG((DEBUG_INFO, "MemoryBase=0x%lx MemorySize=0x%lx\n", MemoryBase, MemorySize));
   //
   // Publish this memory to the PEI Core
   //
@@ -391,13 +392,12 @@ QemuInitializeRam (
   UINT64                               LowerMemorySize;
   UINT64                               UpperMemorySize;
   UINTN                                 BufferSize;
-  UINT8                                 SmramIndex;
   UINT8                                 SmramRanges;
   EFI_PEI_HOB_POINTERS                  Hob;
   EFI_SMRAM_HOB_DESCRIPTOR_BLOCK        *SmramHobDescriptorBlock;
-  UINT8                                 Index;
+  VOID                                  *GuidHob;
 
-  DEBUG ((EFI_D_INFO, "%a called\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a called\n", __func__));
 
   //
   // Determine total memory size available
@@ -405,79 +405,73 @@ QemuInitializeRam (
   LowerMemorySize = GetSystemMemorySizeBelow4gb ();
   UpperMemorySize = GetSystemMemorySizeAbove4gb ();
 
-  if (mBootMode == BOOT_ON_S3_RESUME) {
+  //
+  // CpuMpPei saves the original contents of the borrowed area in permanent
+  // PEI RAM, in a backup buffer allocated with the normal PEI services.
+  // CpuMpPei restores the original contents ("returns" the borrowed area) at
+  // End-of-PEI. End-of-PEI in turn is emitted by S3Resume2Pei before
+  // transferring control to the OS's wakeup vector in the FACS.
+  //
+  // We expect any other PEIMs that "borrow" memory similarly to CpuMpPei to
+  // restore the original contents. Furthermore, we expect all such PEIMs
+  // (CpuMpPei included) to claim the borrowed areas by producing memory
+  // allocation HOBs, and to honor preexistent memory allocation HOBs when
+  // looking for an area to borrow.
+  //
+  AddMemoryRangeHob (0, BASE_512KB + BASE_128KB);
+
+  if (FeaturePcdGet (PcdSmmSmramRequire)) {
+    UINT32 TsegSize;
+
+    TsegSize = mX58TsegMbytes * SIZE_1MB;
+    AddMemoryRangeHob (BASE_1MB, LowerMemorySize - TsegSize);
+    AddReservedMemoryBaseSizeHob (LowerMemorySize - TsegSize, TsegSize,
+      TRUE);
+
+    SmramRanges = 2;
+    BufferSize = sizeof(EFI_SMRAM_HOB_DESCRIPTOR_BLOCK) + (SmramRanges - 1) * sizeof(EFI_SMRAM_DESCRIPTOR);
+
+    Hob.Raw = BuildGuidHob(
+        &gEfiSmmSmramMemoryGuid,
+        BufferSize
+    );
+    ASSERT(Hob.Raw);
+
+    SmramHobDescriptorBlock = (EFI_SMRAM_HOB_DESCRIPTOR_BLOCK *)(Hob.Raw);
+    SmramHobDescriptorBlock->NumberOfSmmReservedRegions = SmramRanges;
+
     //
-    // Create the following memory HOB as an exception on the S3 boot path.
+    // Create first SMRAM descriptor, which contains data structures used in S3 resume.
+    // One page is enough for the data structure
     //
-    // Normally we'd create memory HOBs only on the normal boot path. However,
-    // CpuMpPei specifically needs such a low-memory HOB on the S3 path as
-    // well, for "borrowing" a subset of it temporarily, for the AP startup
-    // vector.
+    SmramHobDescriptorBlock->Descriptor[0].PhysicalStart = LowerMemorySize - TsegSize;
+    SmramHobDescriptorBlock->Descriptor[0].CpuStart = LowerMemorySize - TsegSize;
+    SmramHobDescriptorBlock->Descriptor[0].PhysicalSize = EFI_PAGE_SIZE;
+    SmramHobDescriptorBlock->Descriptor[0].RegionState = EFI_SMRAM_CLOSED | EFI_CACHEABLE | EFI_ALLOCATED;
+    GuidHob = BuildGuidHob (&gEfiAcpiVariableGuid, sizeof(EFI_SMRAM_DESCRIPTOR));
+    ASSERT (GuidHob != NULL);
+    CopyMem (GuidHob, &SmramHobDescriptorBlock->Descriptor[0], sizeof(EFI_SMRAM_DESCRIPTOR));
+
     //
-    // CpuMpPei saves the original contents of the borrowed area in permanent
-    // PEI RAM, in a backup buffer allocated with the normal PEI services.
-    // CpuMpPei restores the original contents ("returns" the borrowed area) at
-    // End-of-PEI. End-of-PEI in turn is emitted by S3Resume2Pei before
-    // transferring control to the OS's wakeup vector in the FACS.
+    // Create second SMRAM descriptor, which is free and will be used by SMM foundation.
     //
-    // We expect any other PEIMs that "borrow" memory similarly to CpuMpPei to
-    // restore the original contents. Furthermore, we expect all such PEIMs
-    // (CpuMpPei included) to claim the borrowed areas by producing memory
-    // allocation HOBs, and to honor preexistent memory allocation HOBs when
-    // looking for an area to borrow.
-    //
-    AddMemoryRangeHob (0, BASE_512KB + BASE_128KB);
+    SmramHobDescriptorBlock->Descriptor[1].PhysicalStart = SmramHobDescriptorBlock->Descriptor[0].PhysicalStart + EFI_PAGE_SIZE;
+    SmramHobDescriptorBlock->Descriptor[1].CpuStart = SmramHobDescriptorBlock->Descriptor[0].CpuStart + EFI_PAGE_SIZE;
+    SmramHobDescriptorBlock->Descriptor[1].PhysicalSize = TsegSize - EFI_PAGE_SIZE;
+    SmramHobDescriptorBlock->Descriptor[1].RegionState = EFI_SMRAM_CLOSED | EFI_CACHEABLE;
   } else {
-    //
-    // Create memory HOBs
-    //
-    AddMemoryRangeHob (0, BASE_512KB + BASE_128KB);
-
-    if (FeaturePcdGet (PcdSmmSmramRequire)) {
-      UINT32 TsegSize;
-
-      TsegSize = mX58TsegMbytes * SIZE_1MB;
-      AddMemoryRangeHob (BASE_1MB, LowerMemorySize - TsegSize);
-      AddReservedMemoryBaseSizeHob (LowerMemorySize - TsegSize, TsegSize,
-        TRUE);
-
-	  BufferSize = sizeof(EFI_SMRAM_HOB_DESCRIPTOR_BLOCK);
-	  SmramRanges = 1;
-
-      Hob.Raw = BuildGuidHob(
-          &gEfiSmmSmramMemoryGuid,
-          BufferSize
-      );
-      ASSERT(Hob.Raw);
-
-      SmramHobDescriptorBlock = (EFI_SMRAM_HOB_DESCRIPTOR_BLOCK *)(Hob.Raw);
-      SmramHobDescriptorBlock->NumberOfSmmReservedRegions = SmramRanges;
-
-      SmramIndex = 0;
-      for (Index = 0; Index < SmramRanges; Index++) {
-        //
-        // This is an SMRAM range, create an SMRAM descriptor
-        //
-        SmramHobDescriptorBlock->Descriptor[SmramIndex].PhysicalStart = LowerMemorySize - TsegSize;
-        SmramHobDescriptorBlock->Descriptor[SmramIndex].CpuStart = LowerMemorySize - TsegSize;
-        SmramHobDescriptorBlock->Descriptor[SmramIndex].PhysicalSize = TsegSize;
-        SmramHobDescriptorBlock->Descriptor[SmramIndex].RegionState = EFI_SMRAM_CLOSED | EFI_CACHEABLE;
-        SmramIndex++;
-      }
-
-    } else {
-      AddMemoryRangeHob (BASE_1MB, LowerMemorySize);
-    }
-
-    //
-    // If QEMU presents an E820 map, then create memory HOBs for the >=4GB RAM
-    // entries. Otherwise, create a single memory HOB with the flat >=4GB
-    // memory size read from the CMOS.
-    //
-    if (UpperMemorySize != 0) {
-      AddMemoryBaseSizeHob (BASE_4GB, UpperMemorySize);
-    }
+    AddMemoryRangeHob (BASE_1MB, LowerMemorySize);
   }
+
+  //
+  // If QEMU presents an E820 map, then create memory HOBs for the >=4GB RAM
+  // entries. Otherwise, create a single memory HOB with the flat >=4GB
+  // memory size read from the CMOS.
+  //
+  if (UpperMemorySize != 0) {
+    AddMemoryBaseSizeHob (BASE_4GB, UpperMemorySize);
+  }
+
 }
 
 /**
@@ -489,6 +483,8 @@ InitializeRamRegions (
   VOID
   )
 {
+  EFI_STATUS     Status;
+
   QemuInitializeRam ();
 
   if (mS3Supported && mBootMode != BOOT_ON_S3_RESUME) {
@@ -561,4 +557,10 @@ InitializeRamRegions (
         );
     }
   }
+
+  //
+  // Install EFI_PEI_MM_ACCESS_PPI for S3 resume case
+  //
+  Status = PeiInstallSmmAccessPpi ();
+  ASSERT_EFI_ERROR (Status);
 }

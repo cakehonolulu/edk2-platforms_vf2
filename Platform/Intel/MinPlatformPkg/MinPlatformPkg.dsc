@@ -1,7 +1,7 @@
 ## @file
 #  Platform description.
 #
-# Copyright (c) 2017 - 2021, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2017 - 2024, Intel Corporation. All rights reserved.<BR>
 # Copyright (c) Microsoft Corporation.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -64,6 +64,7 @@
   PciSegmentInfoLib|MinPlatformPkg/Pci/Library/PciSegmentInfoLibSimple/PciSegmentInfoLibSimple.inf
   PlatformBootManagerLib|MinPlatformPkg/Bds/Library/DxePlatformBootManagerLib/DxePlatformBootManagerLib.inf
   AslUpdateLib|MinPlatformPkg/Acpi/Library/DxeAslUpdateLib/DxeAslUpdateLib.inf
+  PhatAcpiLib|MinPlatformPkg/Acpi/Library/PhatAcpiLib/DxePhatAcpiLib.inf
 
   #
   # Misc
@@ -96,11 +97,13 @@
   TestPointCheckLib|MinPlatformPkg/Test/Library/TestPointCheckLib/PeiTestPointCheckLib.inf
   TestPointLib|MinPlatformPkg/Test/Library/TestPointLib/PeiTestPointLib.inf
   SetCacheMtrrLib|MinPlatformPkg/Library/SetCacheMtrrLib/SetCacheMtrrLibNull.inf
+  MmUnblockMemoryLib|UefiCpuPkg/Library/MmUnblockMemoryLib/MmUnblockMemoryLib.inf
 
 [LibraryClasses.common.DXE_DRIVER]
   #
   # DXE phase common
   #
+  CompressLib|MinPlatformPkg/Library/CompressLib/CompressLib.inf
   FspWrapperPlatformLib|MinPlatformPkg/FspWrapper/Library/DxeFspWrapperPlatformLib/DxeFspWrapperPlatformLib.inf
   TestPointCheckLib|MinPlatformPkg/Test/Library/TestPointCheckLib/DxeTestPointCheckLib.inf
   TestPointLib|MinPlatformPkg/Test/Library/TestPointLib/DxeTestPointLib.inf
@@ -108,15 +111,6 @@
 [LibraryClasses.common.DXE_SMM_DRIVER]
   TestPointCheckLib|MinPlatformPkg/Test/Library/TestPointCheckLib/SmmTestPointCheckLib.inf
   TestPointLib|MinPlatformPkg/Test/Library/TestPointLib/SmmTestPointLib.inf
-
-[LibraryClasses.common.MM_STANDALONE]
-  DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
-  MemoryAllocationLib|StandaloneMmPkg/Library/StandaloneMmMemoryAllocationLib/StandaloneMmMemoryAllocationLib.inf
-  MmServicesTableLib|MdePkg/Library/StandaloneMmServicesTableLib/StandaloneMmServicesTableLib.inf
-  PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
-  StandaloneMmDriverEntryPoint|MdePkg/Library/StandaloneMmDriverEntryPoint/StandaloneMmDriverEntryPoint.inf
-  VariableReadLib|MinPlatformPkg/Library/SmmVariableReadLib/StandaloneMmVariableReadLib.inf
-  VariableWriteLib|MinPlatformPkg/Library/SmmVariableWriteLib/StandaloneMmVariableWriteLib.inf
 
 ###################################################################################################
 #
@@ -157,6 +151,7 @@
   MinPlatformPkg/Bds/Library/DxePlatformBootManagerLib/DxePlatformBootManagerLib.inf
 
   MinPlatformPkg/FspWrapper/SaveMemoryConfig/SaveMemoryConfig.inf
+  MinPlatformPkg/FspWrapper/MpInfo2HobPei/MpInfo2HobPei.inf
   MinPlatformPkg/FspWrapper/Library/PeiFspWrapperHobProcessLib/PeiFspWrapperHobProcessLib.inf
   MinPlatformPkg/FspWrapper/Library/SecFspWrapperPlatformSecLib/SecFspWrapperPlatformSecLib.inf
   MinPlatformPkg/FspWrapper/Library/PeiFspWrapperPlatformLib/PeiFspWrapperPlatformLib.inf
@@ -174,6 +169,7 @@
 
   MinPlatformPkg/PlatformInit/ReportFv/ReportFvPei.inf
   MinPlatformPkg/PlatformInit/PlatformInitPei/PlatformInitPreMem.inf
+  MinPlatformPkg/PlatformInit/PlatformInitPei/PlatformInitPreMemNonFsp.inf
   MinPlatformPkg/PlatformInit/PlatformInitPei/PlatformInitPostMem.inf
   MinPlatformPkg/PlatformInit/PlatformInitDxe/PlatformInitDxe.inf
   MinPlatformPkg/PlatformInit/PlatformInitSmm/PlatformInitSmm.inf
@@ -202,7 +198,6 @@
   MinPlatformPkg/Test/TestPointStubDxe/TestPointStubDxe.inf
   MinPlatformPkg/Test/TestPointDumpApp/TestPointDumpApp.inf
 
-  MinPlatformPkg/Tcg/Library/PeiDxeTpmPlatformHierarchyLib/PeiDxeTpmPlatformHierarchyLib.inf
   MinPlatformPkg/Tcg/Tcg2PlatformPei/Tcg2PlatformPei.inf
   MinPlatformPkg/Tcg/Tcg2PlatformDxe/Tcg2PlatformDxe.inf
 
@@ -216,6 +211,8 @@
   MinPlatformPkg/Library/SmmVariableWriteLib/TraditionalMmVariableWriteLib.inf
   MinPlatformPkg/Library/BaseLargeVariableLib/BaseLargeVariableReadLib.inf
   MinPlatformPkg/Library/BaseLargeVariableLib/BaseLargeVariableWriteLib.inf
+
+  MinPlatformPkg/Acpi/Library/PhatAcpiLib/DxePhatAcpiLib.inf
 
 [BuildOptions]
   *_*_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES

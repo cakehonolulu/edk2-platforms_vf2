@@ -2,7 +2,7 @@
 #  Platform PEI driver
 #
 #  This module provides platform specific function to detect boot mode.
-# Copyright (c) 2006 - 2019 Intel Corporation. All rights reserved. <BR>
+# Copyright (c) 2006 - 2024 Intel Corporation. All rights reserved. <BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -26,6 +26,7 @@
   FeatureControl.c
   MemDetect.c
   Platform.c
+  SmmRelocation.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -36,10 +37,12 @@
   SimicsX58SktPkg/SktPkg.dec
   SimicsIch10Pkg/Ich10Pkg.dec
   BoardModulePkg/BoardModulePkg.dec
+  IntelSiliconPkg/IntelSiliconPkg.dec
 
 [Guids]
   gEfiMemoryTypeInformationGuid
   gEfiSmmSmramMemoryGuid              ## CONSUMES
+  gEfiAcpiVariableGuid
 
 [LibraryClasses]
   BaseLib
@@ -54,6 +57,9 @@
   MtrrLib
   PcdLib
   CmosAccessLib
+  SmmControlLib
+  SmmAccessLib
+  SmmRelocationLib
 
 [Pcd]
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsPeiMemFvBase
@@ -62,7 +68,6 @@
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsDxeMemFvSize
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsLockBoxStorageBase
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsLockBoxStorageSize
-  gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsSecPageTablesBase
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsSecPeiTempRamBase
   gSimicsOpenBoardPkgTokenSpaceGuid.PcdSimicsSecPeiTempRamSize
   gEfiMdePkgTokenSpaceGuid.PcdGuidedExtractHandlerTableAddress
@@ -80,7 +85,6 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdVariableStoreSize
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
-  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSwitchToLongMode
   gEfiMdeModulePkgTokenSpaceGuid.PcdUse1GPageTable
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiS3Enable
@@ -99,6 +103,7 @@
 [Ppis]
   gEfiPeiMasterBootModePpiGuid
   gEfiPeiMpServicesPpiGuid
+  gEdkiiPeiMpServices2PpiGuid
 
 [Depex]
   TRUE

@@ -40,12 +40,48 @@ PublishPeiMemory (
   UINT64 Base;
   UINT64      Size;
   UINT64      RamTop;
+  FIRMWARE_CONFIG_ITEM FwCfgItem;
+  UINTN                FwCfgSize;
+  UINTN                Processed;
+  LOONGARCH_MEMMAP_ENTRY  MemoryMapEntry;
 
   //
   // Determine the range of memory to use during PEI
   //
   Base = PcdGet64 (PcdSecPeiTempRamBase) + PcdGet32 (PcdSecPeiTempRamSize);
-  RamTop = PcdGet64 (PcdUefiRamTop);
+  RamTop = 0;
+
+  Status = QemuFwCfgFindFile ("etc/memmap", &FwCfgItem, &FwCfgSize);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if (FwCfgSize % sizeof MemoryMapEntry != 0) {
+    return EFI_PROTOCOL_ERROR;
+  }
+
+  QemuFwCfgSelectItem (FwCfgItem);
+  for (Processed = 0; Processed < FwCfgSize; Processed += sizeof MemoryMapEntry) {
+    QemuFwCfgReadBytes (sizeof MemoryMapEntry, &MemoryMapEntry);
+    if (MemoryMapEntry.Type != EfiAcpiAddressRangeMemory) {
+      continue;
+    }
+
+    /*
+     * Find memory map entry where PEI temp stack is located
+     */
+    if ((MemoryMapEntry.BaseAddr <= Base) &&
+        (Base < (MemoryMapEntry.BaseAddr + MemoryMapEntry.Length))) {
+        RamTop = MemoryMapEntry.BaseAddr + MemoryMapEntry.Length;
+        break;
+    }
+  }
+
+  if (RamTop == 0) {
+    DEBUG ((DEBUG_ERROR, "ERROR: No memory map entry contains temp stack \n"));
+    ASSERT (FALSE);
+  }
+
   Size = RamTop - Base;
 
   //
@@ -100,5 +136,18 @@ InitializeRamRegions (
     }
 
     AddMemoryRangeHob ( pEntry->BaseAddr, pEntry->BaseAddr + pEntry->Length);
+  }
+
+  //
+  //When 0 address protection is enabled,
+  //0-4k memory needs to be preallocated to prevent UEFI applications from allocating use,
+  //such as grub
+  //
+  if (PcdGet8 (PcdNullPointerDetectionPropertyMask) & BIT0) {
+    BuildMemoryAllocationHob (
+          0,
+          EFI_PAGE_SIZE,
+          EfiBootServicesData
+          );
   }
 }

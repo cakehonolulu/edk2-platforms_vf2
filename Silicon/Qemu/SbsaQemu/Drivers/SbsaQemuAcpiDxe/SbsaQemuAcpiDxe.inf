@@ -1,7 +1,7 @@
 ## @file
 #  This driver modifies ACPI tables for the Qemu SBSA platform
 #
-#  Copyright (c) 2020, Linaro Ltd. All rights reserved.
+#  Copyright (c) 2020-2024, Linaro Ltd. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -29,12 +29,13 @@
   Silicon/Qemu/SbsaQemu/SbsaQemu.dec
 
 [LibraryClasses]
+  AcpiLib
   ArmLib
   BaseMemoryLib
   BaseLib
   DebugLib
   DxeServicesLib
-  FdtHelperLib
+  HardwareInfoLib
   PcdLib
   PrintLib
   UefiDriverEntryPoint
@@ -43,8 +44,13 @@
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiTableStorageFile
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdCoreCount
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdClusterCount
+
+  gArmTokenSpaceGuid.PcdGicDistributorBase
+  gArmTokenSpaceGuid.PcdGicRedistributorsBase
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdGicItsBase
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformVersionMajor
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformVersionMinor
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdSmmuBase
 
 [Depex]
   gEfiAcpiTableProtocolGuid                       ## CONSUMES
@@ -53,15 +59,18 @@
   gEdkiiPlatformHasAcpiGuid
 
 [Protocols]
+  gEfiAcpiSdtProtocolGuid
   gEfiAcpiTableProtocolGuid                       ## CONSUMES
 
 [FixedPcd]
-  gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultOemRevision
-  gArmTokenSpaceGuid.PcdGicDistributorBase
-  gArmTokenSpaceGuid.PcdGicRedistributorsBase
-
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultCreatorId
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultCreatorRevision
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultOemId
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultOemTableId
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultOemRevision
+
+  gArmTokenSpaceGuid.PcdArmArchTimerSecIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerHypIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerVirtIntrNum
+  gArmTokenSpaceGuid.PcdArmArchTimerHypVirtIntrNum

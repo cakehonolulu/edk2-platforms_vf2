@@ -7,7 +7,7 @@
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
-#include <Library/ArmSvcLib.h>
+#include <Library/ArmFfaLib.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
@@ -27,12 +27,11 @@
 // Since the FFA autodiscovery mechanism is not yet implemented we are
 // hardcoding the ID values for the two operations OP-TEE currently supports
 //
-// mMemMgrId is used to set the page permissions after relocating the executable
 // mStorageId is used to access the RPMB partition via OP-TEE
 // In both cases the return value is located in x3. Once the autodiscovery mechanism
 // is in place, we'll have to account for an error value in x2 as well, handling
 // the autodiscovery failed scenario
-STATIC CONST UINT16 mMemMgrId = 3U;
+//
 STATIC CONST UINT16 mStorageId = 4U;
 
 STATIC MEM_INSTANCE mInstance;
@@ -63,48 +62,31 @@ ReadWriteRpmb (
   IN UINTN Offset
   )
 {
-  ARM_SVC_ARGS  SvcArgs;
-  EFI_STATUS    Status;
+  EFI_STATUS        Status;
+  DIRECT_MSG_ARGS   StorageArgs;
 
-  ZeroMem (&SvcArgs, sizeof (SvcArgs));
+  ZeroMem (&StorageArgs, sizeof (StorageArgs));
 
-  SvcArgs.Arg0 = ARM_SVC_ID_FFA_MSG_SEND_DIRECT_REQ;
-  SvcArgs.Arg1 = mStorageId;
-  SvcArgs.Arg2 = 0;
-  SvcArgs.Arg3 = SvcAct;
-  SvcArgs.Arg4 = Addr;
-  SvcArgs.Arg5 = NumBytes;
-  SvcArgs.Arg6 = Offset;
+  StorageArgs.Arg0 = SvcAct;
+  StorageArgs.Arg1 = Addr;
+  StorageArgs.Arg2 = NumBytes;
+  StorageArgs.Arg3 = Offset;
 
-  ArmCallSvc (&SvcArgs);
-  if (SvcArgs.Arg3) {
-    DEBUG ((DEBUG_ERROR, "%a: Svc Call 0x%08x Addr: 0x%08x len: 0x%x Offset: 0x%x failed with 0x%x\n",
-      __func__, SvcAct, Addr, NumBytes, Offset, SvcArgs.Arg3));
+  Status = ArmFfaLibMsgSendDirectReq (
+             mStorageId,
+             0,
+             &StorageArgs
+             );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: Failed to call ffa direct message request.\n", __func__));
+    return Status;
   }
 
-  switch (SvcArgs.Arg3) {
-  case ARM_SVC_SPM_RET_SUCCESS:
-    Status = EFI_SUCCESS;
-    break;
+  Status = FfaStatusToEfiStatus (StorageArgs.Arg0);
 
-  case ARM_SVC_SPM_RET_NOT_SUPPORTED:
-    Status = EFI_UNSUPPORTED;
-    break;
-
-  case ARM_SVC_SPM_RET_INVALID_PARAMS:
-    Status = EFI_INVALID_PARAMETER;
-    break;
-
-  case ARM_SVC_SPM_RET_DENIED:
-    Status = EFI_ACCESS_DENIED;
-    break;
-
-  case ARM_SVC_SPM_RET_NO_MEMORY:
-    Status = EFI_OUT_OF_RESOURCES;
-    break;
-
-  default:
-    Status = EFI_ACCESS_DENIED;
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: SvcAct(0x%08x), Addr(0x%08x), NumBytes(0x%x), Offset(0x%x) failed with 0x%x\n",
+      __func__, SvcAct, Addr, NumBytes, Offset, StorageArgs.Arg0));
   }
 
   return Status;
@@ -575,14 +557,14 @@ ValidateFvHeader (
       || (FwVolHeader->Signature != EFI_FVH_SIGNATURE)
       || (FwVolHeader->FvLength  != FvLength)) {
     DEBUG ((DEBUG_INFO, "%a: No Firmware Volume header present\n",
-      __FUNCTION__));
+      __func__));
     return EFI_NOT_FOUND;
   }
 
   // Check the Firmware Volume Guid
   if (!CompareGuid (&FwVolHeader->FileSystemGuid, &gEfiSystemNvDataFvGuid)) {
     DEBUG ((DEBUG_INFO, "%a: Firmware Volume Guid non-compatible\n",
-      __FUNCTION__));
+      __func__));
     return EFI_VOLUME_CORRUPTED;
   }
 
@@ -590,7 +572,7 @@ ValidateFvHeader (
   Checksum = CalculateSum16 ((UINT16*)FwVolHeader, FwVolHeader->HeaderLength);
   if (Checksum != 0) {
     DEBUG ((DEBUG_INFO, "%a: FV checksum is invalid (Checksum:0x%X)\n",
-      __FUNCTION__, Checksum));
+      __func__, Checksum));
     return EFI_VOLUME_CORRUPTED;
   }
 
@@ -600,7 +582,7 @@ ValidateFvHeader (
   // Check the Variable Store Guid
   if (!CompareGuid (&VariableStoreHeader->Signature, &gEfiVariableGuid) &&
       !CompareGuid (&VariableStoreHeader->Signature, &gEfiAuthenticatedVariableGuid)) {
-    DEBUG ((DEBUG_INFO, "%a: Variable Store Guid non-compatible\n", __FUNCTION__));
+    DEBUG ((DEBUG_INFO, "%a: Variable Store Guid non-compatible\n", __func__));
     return EFI_VOLUME_CORRUPTED;
   }
 
@@ -608,7 +590,7 @@ ValidateFvHeader (
                         FwVolHeader->HeaderLength;
   if (VariableStoreHeader->Size != VariableStoreLength) {
     DEBUG ((DEBUG_INFO, "%a: Variable Store Length does not match\n",
-      __FUNCTION__));
+      __func__));
     return EFI_VOLUME_CORRUPTED;
   }
 
@@ -754,7 +736,7 @@ FvbInitialize (
   Status = ValidateFvHeader (FwVolHeader);
   if (EFI_ERROR (Status)) {
     // There is no valid header, so time to install one.
-    DEBUG ((DEBUG_INFO, "%a: The FVB Header is not valid.\n", __FUNCTION__));
+    DEBUG ((DEBUG_INFO, "%a: The FVB Header is not valid.\n", __func__));
 
     // Reset memory
     SetMem64 (
@@ -762,7 +744,7 @@ FvbInitialize (
       Instance->NBlocks * Instance->BlockSize,
       ~0UL
       );
-    DEBUG ((DEBUG_INFO, "%a: Erasing Flash.\n", __FUNCTION__));
+    DEBUG ((DEBUG_INFO, "%a: Erasing Flash.\n", __func__));
     Status = ReadWriteRpmb (
                SP_SVC_RPMB_WRITE,
                Instance->MemBaseAddress,
@@ -776,13 +758,13 @@ FvbInitialize (
     }
     // Install all appropriate headers
     DEBUG ((DEBUG_INFO, "%a: Installing a correct one for this volume.\n",
-      __FUNCTION__));
+      __func__));
     Status = InitializeFvAndVariableStoreHeaders (Instance);
     if (EFI_ERROR (Status)) {
       return Status;
     }
   } else {
-    DEBUG ((DEBUG_INFO, "%a: Found valid FVB Header.\n", __FUNCTION__));
+    DEBUG ((DEBUG_INFO, "%a: Found valid FVB Header.\n", __func__));
   }
   Instance->Initialized = TRUE;
 
@@ -861,9 +843,9 @@ OpTeeRpmbFvbInit (
                     );
   ASSERT_EFI_ERROR (Status);
 
-  DEBUG ((DEBUG_INFO, "%a: Register OP-TEE RPMB Fvb\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a: Register OP-TEE RPMB Fvb\n", __func__));
   DEBUG ((DEBUG_INFO, "%a: Using NV store FV in-memory copy at 0x%lx\n",
-    __FUNCTION__, PatchPcdGet64 (PcdFlashNvStorageVariableBase64)));
+    __func__, PatchPcdGet64 (PcdFlashNvStorageVariableBase64)));
 
   return Status;
 }

@@ -51,6 +51,7 @@
 
 [Sources]
   PlatformInitPreMem.c
+  FspSupport.c
 
 [Ppis]
   gEfiPeiMemoryDiscoveredPpiGuid

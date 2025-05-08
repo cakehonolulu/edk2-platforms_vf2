@@ -1,7 +1,7 @@
 /** @file
   Configuration Manager Dxe
 
-  Copyright (c) 2017 - 2022, Arm Limited. All rights reserved.<BR>
+  Copyright (c) 2017 - 2024, Arm Limited. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -15,6 +15,7 @@
 #include <IndustryStandard/SerialPortConsoleRedirectionTable.h>
 #include <Library/ArmLib.h>
 #include <Library/DebugLib.h>
+#include <Library/DynamicTablesScmiInfoLib.h>
 #include <Library/IoLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -129,12 +130,12 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
      GIC_ENTRY (CPUInterfaceNumber, Mpidr, PmuIrq, VGicIrq, EnergyEfficiency)
   */
   {
-    GICC_ENTRY (0, GET_MPID (0, 0), 34, 25, 1),
-    GICC_ENTRY (1, GET_MPID (0, 1), 38, 25, 1),
-    GICC_ENTRY (2, GET_MPID (1, 0), 50, 25, 0),
-    GICC_ENTRY (3, GET_MPID (1, 1), 54, 25, 0),
-    GICC_ENTRY (4, GET_MPID (1, 2), 58, 25, 0),
-    GICC_ENTRY (5, GET_MPID (1, 3), 62, 25, 0)
+    GICC_ENTRY (0, GET_MPID (0, 0), 34, 25, 1, REFERENCE_TOKEN (PsdInfo[PSD_BIG_DOMAIN_ID])),
+    GICC_ENTRY (1, GET_MPID (0, 1), 38, 25, 1, REFERENCE_TOKEN (PsdInfo[PSD_BIG_DOMAIN_ID])),
+    GICC_ENTRY (2, GET_MPID (1, 0), 50, 25, 0, REFERENCE_TOKEN (PsdInfo[PSD_LITTLE_DOMAIN_ID])),
+    GICC_ENTRY (3, GET_MPID (1, 1), 54, 25, 0, REFERENCE_TOKEN (PsdInfo[PSD_LITTLE_DOMAIN_ID])),
+    GICC_ENTRY (4, GET_MPID (1, 2), 58, 25, 0, REFERENCE_TOKEN (PsdInfo[PSD_LITTLE_DOMAIN_ID])),
+    GICC_ENTRY (5, GET_MPID (1, 3), 62, 25, 0, REFERENCE_TOKEN (PsdInfo[PSD_LITTLE_DOMAIN_ID])),
   },
 
   // GIC Distributor Info
@@ -225,7 +226,9 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
     FixedPcdGet32 (PL011UartInterrupt),               // Interrupt
     FixedPcdGet64 (PcdUartDefaultBaudRate),           // BaudRate
     FixedPcdGet32 (PL011UartClkInHz),                 // Clock
-    EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_PL011_UART  // Port subtype
+    EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_PL011_UART, // Port subtype
+    0x1000,                                           // Address length
+    EFI_ACPI_6_3_DWORD,                               // Access size
   },
   // Debug Serial Port
   {
@@ -233,7 +236,9 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
     38,                                               // Interrupt
     FixedPcdGet64 (PcdSerialDbgUartBaudRate),         // BaudRate
     FixedPcdGet32 (PcdSerialDbgUartClkInHz),          // Clock
-    EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_PL011_UART  // Port subtype
+    EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_PL011_UART, // Port subtype
+    0x1000,                                           // Address length
+    EFI_ACPI_6_3_DWORD,                               // Access size
   },
 
   // PCI Configuration Space Info
@@ -360,7 +365,7 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
       ),
       // CM_OBJECT_TOKEN  ParentToken
       CM_NULL_TOKEN,
-      // CM_OBJECT_TOKEN  GicCToken
+      // CM_OBJECT_TOKEN  AcpiIdObjectToken
       CM_NULL_TOKEN,
       // UINT32  NoOfPrivateResources
       0,
@@ -383,7 +388,7 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
       ),
       // CM_OBJECT_TOKEN  ParentToken
       REFERENCE_TOKEN (ProcHierarchyInfo[0]), // -> Package
-      // CM_OBJECT_TOKEN  GicCToken
+      // CM_OBJECT_TOKEN  AcpiIdObjectToken
       CM_NULL_TOKEN,
       // UINT32  NoOfPrivateResources
       BIG_CLUSTER_RESOURCE_COUNT,
@@ -406,7 +411,7 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
       ),
       // CM_OBJECT_TOKEN  ParentToken
       REFERENCE_TOKEN (ProcHierarchyInfo[0]), // -> Package
-      // CM_OBJECT_TOKEN  GicCToken
+      // CM_OBJECT_TOKEN  AcpiIdObjectToken
       CM_NULL_TOKEN,
       // UINT32  NoOfPrivateResources
       LITTLE_CLUSTER_RESOURCE_COUNT,
@@ -429,7 +434,7 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
       ),
       // CM_OBJECT_TOKEN  ParentToken
       REFERENCE_TOKEN (ProcHierarchyInfo[1]), // -> 'big' cluster
-      // CM_OBJECT_TOKEN  GicCToken
+      // CM_OBJECT_TOKEN  AcpiIdObjectToken
       REFERENCE_TOKEN (GicCInfo[0]),
       // UINT32  NoOfPrivateResources
       BIG_CORE_RESOURCE_COUNT,
@@ -451,7 +456,7 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
       ),
       // CM_OBJECT_TOKEN  ParentToken
       REFERENCE_TOKEN (ProcHierarchyInfo[1]), // -> 'big' cluster
-      // CM_OBJECT_TOKEN  GicCToken
+      // CM_OBJECT_TOKEN  AcpiIdObjectToken
       REFERENCE_TOKEN (GicCInfo[1]),
       // UINT32  NoOfPrivateResources
       BIG_CORE_RESOURCE_COUNT,
@@ -474,7 +479,7 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
       ),
       // CM_OBJECT_TOKEN  ParentToken
       REFERENCE_TOKEN (ProcHierarchyInfo[2]), // -> 'LITTLE' cluster
-      // CM_OBJECT_TOKEN  GicCToken
+      // CM_OBJECT_TOKEN  AcpiIdObjectToken
       REFERENCE_TOKEN (GicCInfo[2]),
       // UINT32  NoOfPrivateResources
       LITTLE_CORE_RESOURCE_COUNT,
@@ -496,7 +501,7 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
       ),
       // CM_OBJECT_TOKEN  ParentToken
       REFERENCE_TOKEN (ProcHierarchyInfo[2]), // -> 'LITTLE' cluster
-      // CM_OBJECT_TOKEN  GicCToken
+      // CM_OBJECT_TOKEN  AcpiIdObjectToken
       REFERENCE_TOKEN (GicCInfo[3]),
       // UINT32  NoOfPrivateResources
       LITTLE_CORE_RESOURCE_COUNT,
@@ -518,7 +523,7 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
       ),
       // CM_OBJECT_TOKEN  ParentToken
       REFERENCE_TOKEN (ProcHierarchyInfo[2]), // -> 'LITTLE' cluster
-      // CM_OBJECT_TOKEN  GicCToken
+      // CM_OBJECT_TOKEN  AcpiIdObjectToken
       REFERENCE_TOKEN (GicCInfo[4]),
       // UINT32  NoOfPrivateResources
       LITTLE_CORE_RESOURCE_COUNT,
@@ -540,7 +545,7 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
       ),
       // CM_OBJECT_TOKEN  ParentToken
       REFERENCE_TOKEN (ProcHierarchyInfo[2]), // -> 'LITTLE' cluster
-      // CM_OBJECT_TOKEN  GicCToken
+      // CM_OBJECT_TOKEN  AcpiIdObjectToken
       REFERENCE_TOKEN (GicCInfo[5]),
       // UINT32  NoOfPrivateResources
       LITTLE_CORE_RESOURCE_COUNT,
@@ -733,7 +738,29 @@ EDKII_PLATFORM_REPOSITORY_INFO ArmJunoPlatformRepositoryInfo = {
   {
     { REFERENCE_TOKEN (LpiInfo[1]) },
     { REFERENCE_TOKEN (LpiInfo[2]) },
-  }
+  },
+  { // Power domains
+    { // 0: big cores
+      // Revision
+      EFI_ACPI_6_5_AML_PSD_REVISION,
+      // Domain
+      PSD_BIG_DOMAIN_ID,
+      // CoordType
+      ACPI_AML_COORD_TYPE_SW_ANY,
+      // NumProc
+      2,
+    },
+    { // 1: little cores
+      // Revision
+      EFI_ACPI_6_5_AML_PSD_REVISION,
+      // Domain
+      PSD_LITTLE_DOMAIN_ID,
+      // CoordType
+      ACPI_AML_COORD_TYPE_SW_ANY,
+      // NumProc
+      4,
+    },
+  },
 };
 
 /** A helper function for returning the Configuration Manager Objects.
@@ -879,6 +906,175 @@ HandleCmObjectSearchPlatformRepo (
   return Status;
 }
 
+/** Clear Cpc information.
+
+  If populating _CPC information fails, remove GicC tokens pointing
+  to Cpc CmObj to avoid creating corrupted _CPC objects.
+
+  @param [in] PlatformRepo   Platfom Info repository.
+
+  @retval EFI_SUCCESS   Success.
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+ClearCpcInfo (
+  IN  EDKII_PLATFORM_REPOSITORY_INFO  *PlatformRepo
+  )
+{
+  CM_ARM_GICC_INFO  *GicCInfo;
+
+  GicCInfo = (CM_ARM_GICC_INFO*)&PlatformRepo->GicCInfo;
+
+  GicCInfo[0].CpcToken = CM_NULL_TOKEN;
+  GicCInfo[1].CpcToken = CM_NULL_TOKEN;
+  GicCInfo[2].CpcToken = CM_NULL_TOKEN;
+  GicCInfo[3].CpcToken = CM_NULL_TOKEN;
+  GicCInfo[4].CpcToken = CM_NULL_TOKEN;
+  GicCInfo[5].CpcToken = CM_NULL_TOKEN;
+
+  return EFI_SUCCESS;
+}
+
+/** Use the SCMI protocol to populate CPC objects dynamically.
+
+  @param [in] PlatformRepo   Platfom Info repository.
+  @param [in] DomainId       Id of the DVFS domain to probe.
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_INVALID_PARAMETER   A parameter is invalid.
+  @retval EFI_UNSUPPORTED         Not supported.
+  @retval !(EFI_SUCCESS)          An error occured.
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+PopulateCpcInfo (
+  IN  EDKII_PLATFORM_REPOSITORY_INFO  *PlatformRepo,
+  IN  UINT32                      DomainId
+  )
+{
+  EFI_STATUS          Status;
+  CM_ARM_GICC_INFO    *GicCInfo;
+  AML_CPC_INFO        *CpcInfo;
+
+  if ((PlatformRepo == NULL)  ||
+      ((DomainId != PSD_BIG_DOMAIN_ID) &&
+       (DomainId != PSD_LITTLE_DOMAIN_ID))) {
+    Status = EFI_INVALID_PARAMETER;
+    ASSERT_EFI_ERROR (Status);
+    return Status;
+  }
+
+  CpcInfo = &PlatformRepo->CpcInfo[DomainId];
+  GicCInfo = (CM_ARM_GICC_INFO*)&PlatformRepo->GicCInfo;
+
+  Status = DynamicTablesScmiInfoGetFastChannel (
+              PlatformRepo->PsdInfo[DomainId].Domain,
+              CpcInfo
+              );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  /* CPPC must advertise performances on a 'continuous, abstract, unit-less
+     performance scale', i.e. CPU performances on an asymmetric platform
+     nust be represented on a unified scale.
+     CPU performance values are obtained from SCP through SCMI and advertised
+     to the OS via the _CPC objects. SCP currently maps performance requests
+     to frequency requests.
+     Thus, SCP must be modified to  advertise (and correctly handle)
+     performance values on a unified scale.
+
+     Check that SCP is using a unified scale by checking that the advertised
+     lowest/nominal frequencies are not the default ones.
+   */
+  if (((DomainId == PSD_BIG_DOMAIN_ID) &&
+       (CpcInfo->LowestPerformanceInteger == 600000000) &&
+       (CpcInfo->NominalPerformanceInteger == 1000000000)) ||
+      ((DomainId == PSD_LITTLE_DOMAIN_ID) &&
+       (CpcInfo->LowestPerformanceInteger == 450000000) &&
+       (CpcInfo->NominalPerformanceInteger == 800000000))) {
+    return EFI_UNSUPPORTED;
+  }
+
+  // Juno R2's lowest/nominal frequencies.
+  // Nominal frequency != Highest frequency.
+  if (DomainId == PSD_BIG_DOMAIN_ID) {
+    CpcInfo->LowestFrequencyInteger = 600;
+    CpcInfo->NominalFrequencyInteger = 1000;
+  } else {
+    CpcInfo->LowestFrequencyInteger = 450;
+    CpcInfo->NominalFrequencyInteger = 800;
+  }
+
+  // The mapping Psd -> CPUs is available here.
+  if (DomainId == PSD_BIG_DOMAIN_ID) {
+    GicCInfo[0].CpcToken = (CM_OBJECT_TOKEN)CpcInfo;
+    GicCInfo[1].CpcToken = (CM_OBJECT_TOKEN)CpcInfo;
+  } else {
+    GicCInfo[2].CpcToken = (CM_OBJECT_TOKEN)CpcInfo;
+    GicCInfo[3].CpcToken = (CM_OBJECT_TOKEN)CpcInfo;
+    GicCInfo[4].CpcToken = (CM_OBJECT_TOKEN)CpcInfo;
+    GicCInfo[5].CpcToken = (CM_OBJECT_TOKEN)CpcInfo;
+  }
+
+  /*
+    Arm advises to use FFH to the following registers which uses AMU counters:
+     - ReferencePerformanceCounterRegister
+     - DeliveredPerformanceCounterRegister
+    Cf. Arm Functional Fixed Hardware Specification
+    s3.2 Performance management and Collaborative Processor Performance Control
+
+    AMU is not supported by the Juno, so clear these registers.
+   */
+  CpcInfo->ReferencePerformanceCounterRegister.AddressSpaceId = EFI_ACPI_6_5_SYSTEM_MEMORY;
+  CpcInfo->ReferencePerformanceCounterRegister.RegisterBitWidth = 0;
+  CpcInfo->ReferencePerformanceCounterRegister.RegisterBitOffset = 0;
+  CpcInfo->ReferencePerformanceCounterRegister.AccessSize = 0;
+  CpcInfo->ReferencePerformanceCounterRegister.Address = 0;
+
+  CpcInfo->DeliveredPerformanceCounterRegister.AddressSpaceId = EFI_ACPI_6_5_SYSTEM_MEMORY;
+  CpcInfo->DeliveredPerformanceCounterRegister.RegisterBitWidth = 0;
+  CpcInfo->DeliveredPerformanceCounterRegister.RegisterBitOffset = 0;
+  CpcInfo->DeliveredPerformanceCounterRegister.AccessSize = 0;
+  CpcInfo->DeliveredPerformanceCounterRegister.Address = 0;
+
+  return Status;
+}
+
+/** Iterate over the PSD Domains and try to populate the Cpc objects.
+
+  @param [in] PlatformRepo   Platfom Info repository.
+**/
+STATIC
+VOID
+EFIAPI
+PopulateCpcObjects (
+  IN  EDKII_PLATFORM_REPOSITORY_INFO  * PlatformRepo
+  )
+{
+  EFI_STATUS  Status;
+  UINT32      Index;
+  BOOLEAN     CpcFailed;
+
+  CpcFailed = FALSE;
+  for (Index = 0; Index < PSD_DOMAIN_COUNT; Index++) {
+    Status = PopulateCpcInfo (PlatformRepo, Index);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_WARN, "WARN: Could not populate _CPC.\n"));
+      CpcFailed = TRUE;
+      break;
+    }
+  }
+
+  if (CpcFailed) {
+    // _CPC information is not mandatory and SCP might not support some
+    // SCMI requests. Failing should not prevent from booting.
+    ClearCpcInfo (PlatformRepo);
+  }
+}
+
 /** Initialize the platform configuration repository.
 
   @param [in]  This        Pointer to the Configuration Manager Protocol.
@@ -898,6 +1094,23 @@ InitializePlatformRepository (
 
   GetJunoRevision (PlatformRepo->JunoRevision);
   DEBUG ((DEBUG_INFO, "Juno Rev = 0x%x\n", PlatformRepo->JunoRevision));
+
+  ///
+  /// 1.
+  /// _CPC was only tested on Juno R2, so only enable support for this version.
+  ///
+  /// 2.
+  /// Some _CPC registers cannot be populated for the Juno:
+  /// - PerformanceLimitedRegister
+  /// - ReferencePerformanceCounterRegister
+  /// - DeliveredPerformanceCounterRegister
+  /// Only build _CPC objects if relaxation regarding these registers
+  /// is allowed.
+  if ((PlatformRepo->JunoRevision == JUNO_REVISION_R2) &&
+      (PcdGet64(PcdDevelopmentPlatformRelaxations) & BIT0)) {
+    PopulateCpcObjects (PlatformRepo);
+  }
+
   return EFI_SUCCESS;
 }
 
@@ -993,12 +1206,12 @@ GetGicCInfo (
   return EFI_NOT_FOUND;
 }
 
-/** Return Lpi State Infor.
+/** Return Lpi State Info.
 
   @param [in]      This           Pointer to the Configuration Manager Protocol.
   @param [in]      CmObjectId     The Object ID of the CM object requested
   @param [in]      SearchToken    A unique token for identifying the requested
-                                  CM_ARM_LPI_INFO object.
+                                  CM_ARCH_COMMON_LPI_INFO object.
   @param [in, out] CmObject       Pointer to the Configuration Manager Object
                                   descriptor describing the requested Object.
 
@@ -1048,7 +1261,7 @@ GetLpiInfo (
   @param [in]      This           Pointer to the Configuration Manager Protocol.
   @param [in]      CmObjectId     The Object ID of the CM object requested
   @param [in]      SearchToken    A unique token for identifying the requested
-                                  CM_ARM_PCI_ADDRESS_MAP_INFO object.
+                                  CM_ARCH_COMMON_PCI_ADDRESS_MAP_INFO object.
   @param [in, out] CmObject       Pointer to the Configuration Manager Object
                                   descriptor describing the requested Object.
 
@@ -1097,7 +1310,7 @@ GetPciAddressMapInfo (
   @param [in]      This           Pointer to the Configuration Manager Protocol.
   @param [in]      CmObjectId     The Object ID of the CM object requested
   @param [in]      SearchToken    A unique token for identifying the requested
-                                  CM_ARM_PCI_INTERRUPT_MAP_INFO object.
+                                  CM_ARCH_COMMON_PCI_INTERRUPT_MAP_INFO object.
   @param [in, out] CmObject       Pointer to the Configuration Manager Object
                                   descriptor describing the requested Object.
 
@@ -1141,13 +1354,111 @@ GetPciInterruptMapInfo (
   return EFI_NOT_FOUND;
 }
 
+/** Return Psd Info.
+
+  @param [in]      This           Pointer to the Configuration Manager Protocol.
+  @param [in]      CmObjectId     The Object ID of the CM object requested
+  @param [in]      SearchToken    A unique token for identifying the requested
+                                  CM_ARCH_COMMON_PSD_INFO object.
+  @param [in, out] CmObject       Pointer to the Configuration Manager Object
+                                  descriptor describing the requested Object.
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_INVALID_PARAMETER   A parameter is invalid.
+  @retval EFI_NOT_FOUND           The required object information is not found.
+**/
+EFI_STATUS
+EFIAPI
+GetPsdInfo (
+  IN  CONST EDKII_CONFIGURATION_MANAGER_PROTOCOL  * CONST This,
+  IN  CONST CM_OBJECT_ID                                  CmObjectId,
+  IN  CONST CM_OBJECT_TOKEN                               SearchToken,
+  IN  OUT   CM_OBJ_DESCRIPTOR                     * CONST CmObject
+  )
+{
+  EDKII_PLATFORM_REPOSITORY_INFO  * PlatformRepo;
+  UINT32                            TotalObjCount;
+  UINT32                            ObjIndex;
+
+  if ((This == NULL) || (CmObject == NULL)) {
+    ASSERT (This != NULL);
+    ASSERT (CmObject != NULL);
+    return EFI_INVALID_PARAMETER;
+  }
+
+  PlatformRepo = This->PlatRepoInfo;
+
+  TotalObjCount = ARRAY_SIZE (PlatformRepo->PsdInfo);
+
+  for (ObjIndex = 0; ObjIndex < TotalObjCount; ObjIndex++) {
+    if (SearchToken == (CM_OBJECT_TOKEN)&PlatformRepo->PsdInfo[ObjIndex]) {
+      CmObject->ObjectId = CmObjectId;
+      CmObject->Size = sizeof (PlatformRepo->PsdInfo[ObjIndex]);
+      CmObject->Data = (VOID*)&PlatformRepo->PsdInfo[ObjIndex];
+      CmObject->Count = 1;
+      return EFI_SUCCESS;
+    }
+  }
+
+  return EFI_NOT_FOUND;
+}
+
+/** Return Cpc Info.
+
+  @param [in]      This           Pointer to the Configuration Manager Protocol.
+  @param [in]      CmObjectId     The Object ID of the CM object requested
+  @param [in]      SearchToken    A unique token for identifying the requested
+                                  CM_ARCH_COMMON_CPC_INFO object.
+  @param [in, out] CmObject       Pointer to the Configuration Manager Object
+                                  descriptor describing the requested Object.
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_INVALID_PARAMETER   A parameter is invalid.
+  @retval EFI_NOT_FOUND           The required object information is not found.
+**/
+EFI_STATUS
+EFIAPI
+GetCpcInfo (
+  IN  CONST EDKII_CONFIGURATION_MANAGER_PROTOCOL  * CONST This,
+  IN  CONST CM_OBJECT_ID                                  CmObjectId,
+  IN  CONST CM_OBJECT_TOKEN                               SearchToken,
+  IN  OUT   CM_OBJ_DESCRIPTOR                     * CONST CmObject
+  )
+{
+  EDKII_PLATFORM_REPOSITORY_INFO  * PlatformRepo;
+  UINT32                            TotalObjCount;
+  UINT32                            ObjIndex;
+
+  if ((This == NULL) || (CmObject == NULL)) {
+    ASSERT (This != NULL);
+    ASSERT (CmObject != NULL);
+    return EFI_INVALID_PARAMETER;
+  }
+
+  PlatformRepo = This->PlatRepoInfo;
+
+  TotalObjCount = ARRAY_SIZE (PlatformRepo->CpcInfo);
+
+  for (ObjIndex = 0; ObjIndex < TotalObjCount; ObjIndex++) {
+    if (SearchToken == (CM_OBJECT_TOKEN)&PlatformRepo->CpcInfo[ObjIndex]) {
+      CmObject->ObjectId = CmObjectId;
+      CmObject->Size = sizeof (PlatformRepo->CpcInfo[ObjIndex]);
+      CmObject->Data = (VOID*)&PlatformRepo->CpcInfo[ObjIndex];
+      CmObject->Count = 1;
+      return EFI_SUCCESS;
+    }
+  }
+
+  return EFI_NOT_FOUND;
+}
+
 /** Return a list of Configuration Manager object references pointed to by the
     given input token.
 
   @param [in]      This           Pointer to the Configuration Manager Protocol.
   @param [in]      CmObjectId     The Object ID of the CM object requested
   @param [in]      SearchToken    A unique token for identifying the requested
-                                  CM_ARM_OBJ_REF list.
+                                  CM_ARCH_COMMON_OBJ_REF list.
   @param [in, out] CmObject       Pointer to the Configuration Manager Object
                                   descriptor describing the requested Object.
 
@@ -1305,6 +1616,197 @@ GetStandardNameSpaceObject (
   return Status;
 }
 
+
+/** Return an Arch Common namespace object.
+
+  @param [in]      This        Pointer to the Configuration Manager Protocol.
+  @param [in]      CmObjectId  The Configuration Manager Object ID.
+  @param [in]      Token       An optional token identifying the object. If
+                               unused this must be CM_NULL_TOKEN.
+  @param [in, out] CmObject    Pointer to the Configuration Manager Object
+                               descriptor describing the requested Object.
+
+  @retval EFI_SUCCESS           Success.
+  @retval EFI_INVALID_PARAMETER A parameter is invalid.
+  @retval EFI_NOT_FOUND         The required object information is not found.
+**/
+EFI_STATUS
+EFIAPI
+GetArchCommonNameSpaceObject (
+  IN  CONST EDKII_CONFIGURATION_MANAGER_PROTOCOL  * CONST This,
+  IN  CONST CM_OBJECT_ID                                  CmObjectId,
+  IN  CONST CM_OBJECT_TOKEN                               Token OPTIONAL,
+  IN  OUT   CM_OBJ_DESCRIPTOR                     * CONST CmObject
+  )
+{
+  EFI_STATUS                        Status;
+  EDKII_PLATFORM_REPOSITORY_INFO  * PlatformRepo;
+
+  if ((This == NULL) || (CmObject == NULL)) {
+    ASSERT (This != NULL);
+    ASSERT (CmObject != NULL);
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = EFI_NOT_FOUND;
+  PlatformRepo = This->PlatRepoInfo;
+
+  switch (GET_CM_OBJECT_ID (CmObjectId)) {
+    case EArchCommonObjPowerManagementProfileInfo:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 &PlatformRepo->PmProfileInfo,
+                 sizeof (PlatformRepo->PmProfileInfo),
+                 1,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjConsolePortInfo:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 &PlatformRepo->SpcrSerialPort,
+                 sizeof (PlatformRepo->SpcrSerialPort),
+                 1,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjSerialDebugPortInfo:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 &PlatformRepo->DbgSerialPort,
+                 sizeof (PlatformRepo->DbgSerialPort),
+                 1,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjCmRef:
+      Status = HandleCmObjectSearchPlatformRepo (
+                 This,
+                 CmObjectId,
+                 Token,
+                 GetCmObjRefs,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjPciConfigSpaceInfo:
+      if (PlatformRepo->JunoRevision != JUNO_REVISION_R0) {
+        Status = HandleCmObject (
+                   CmObjectId,
+                   &PlatformRepo->PciConfigInfo,
+                   sizeof (PlatformRepo->PciConfigInfo),
+                   1,
+                   CmObject
+                   );
+      } else {
+        // No PCIe on Juno R0.
+        Status = EFI_NOT_FOUND;
+      }
+      break;
+
+    case EArchCommonObjPciAddressMapInfo:
+      Status = HandleCmObjectRefByToken (
+                 This,
+                 CmObjectId,
+                 PlatformRepo->PciAddressMapInfo,
+                 sizeof (PlatformRepo->PciAddressMapInfo),
+                 ARRAY_SIZE (PlatformRepo->PciAddressMapInfo),
+                 Token,
+                 GetPciAddressMapInfo,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjPciInterruptMapInfo:
+      Status = HandleCmObjectRefByToken (
+                 This,
+                 CmObjectId,
+                 PlatformRepo->PciInterruptMapInfo,
+                 sizeof (PlatformRepo->PciInterruptMapInfo),
+                 ARRAY_SIZE (PlatformRepo->PciInterruptMapInfo),
+                 Token,
+                 GetPciInterruptMapInfo,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjLpiInfo:
+      Status = HandleCmObjectRefByToken (
+                 This,
+                 CmObjectId,
+                 NULL,
+                 0,
+                 0,
+                 Token,
+                 GetLpiInfo,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjProcHierarchyInfo:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 PlatformRepo->ProcHierarchyInfo,
+                 sizeof (PlatformRepo->ProcHierarchyInfo),
+                 ARRAY_SIZE (PlatformRepo->ProcHierarchyInfo),
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjCacheInfo:
+      Status = HandleCmObject (
+                 CmObjectId,
+                 PlatformRepo->CacheInfo,
+                 sizeof (PlatformRepo->CacheInfo),
+                 ARRAY_SIZE (PlatformRepo->CacheInfo),
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjCpcInfo:
+      Status = HandleCmObjectRefByToken (
+                 This,
+                 CmObjectId,
+                 PlatformRepo->CpcInfo,
+                 sizeof (PlatformRepo->CpcInfo),
+                 ARRAY_SIZE (PlatformRepo->CpcInfo),
+                 Token,
+                 GetCpcInfo,
+                 CmObject
+                 );
+      break;
+
+    case EArchCommonObjPsdInfo:
+      Status = HandleCmObjectRefByToken (
+                 This,
+                 CmObjectId,
+                 PlatformRepo->PsdInfo,
+                 sizeof (PlatformRepo->PsdInfo),
+                 ARRAY_SIZE (PlatformRepo->PsdInfo),
+                 Token,
+                 GetPsdInfo,
+                 CmObject
+                 );
+      break;
+
+    default: {
+      Status = EFI_NOT_FOUND;
+      DEBUG ((
+        DEBUG_INFO,
+        "INFO: Object 0x%x. Status = %r\n",
+        CmObjectId,
+        Status
+        ));
+      break;
+    }
+  } //switch
+
+  return Status;
+}
+
 /** Return an ARM namespace object.
 
   @param [in]      This        Pointer to the Configuration Manager Protocol.
@@ -1349,15 +1851,6 @@ GetArmNameSpaceObject (
                  CmObject
                  );
       break;
-    case EArmObjPowerManagementProfileInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 &PlatformRepo->PmProfileInfo,
-                 sizeof (PlatformRepo->PmProfileInfo),
-                 1,
-                 CmObject
-                 );
-      break;
 
     case EArmObjGenericTimerInfo:
       Status = HandleCmObject (
@@ -1380,26 +1873,38 @@ GetArmNameSpaceObject (
       break;
 
     case EArmObjPlatformGTBlockInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 PlatformRepo->GTBlockInfo,
-                 sizeof (PlatformRepo->GTBlockInfo),
-                 ARRAY_SIZE (PlatformRepo->GTBlockInfo),
-                 CmObject
-                 );
+      if (PlatformRepo->JunoRevision == JUNO_REVISION_R0) {
+        // Disable Memory Mapped Platform Timers for Juno R0
+        // due to Juno Erratum 832219.
+        Status = EFI_NOT_FOUND;
+      } else {
+        Status = HandleCmObject (
+                   CmObjectId,
+                   PlatformRepo->GTBlockInfo,
+                   sizeof (PlatformRepo->GTBlockInfo),
+                   ARRAY_SIZE (PlatformRepo->GTBlockInfo),
+                   CmObject
+                  );
+      }
       break;
 
     case EArmObjGTBlockTimerFrameInfo:
-      Status = HandleCmObjectRefByToken (
-                 This,
-                 CmObjectId,
-                 PlatformRepo->GTBlock0TimerInfo,
-                 sizeof (PlatformRepo->GTBlock0TimerInfo),
-                 ARRAY_SIZE (PlatformRepo->GTBlock0TimerInfo),
-                 Token,
-                 GetGTBlockTimerFrameInfo,
-                 CmObject
-                 );
+      if (PlatformRepo->JunoRevision == JUNO_REVISION_R0) {
+        // Disable Memory Mapped Platform Timers for Juno R0
+        // due to Juno Erratum 832219.
+        Status = EFI_NOT_FOUND;
+      } else {
+        Status = HandleCmObjectRefByToken (
+                   This,
+                   CmObjectId,
+                   PlatformRepo->GTBlock0TimerInfo,
+                   sizeof (PlatformRepo->GTBlock0TimerInfo),
+                   ARRAY_SIZE (PlatformRepo->GTBlock0TimerInfo),
+                   Token,
+                   GetGTBlockTimerFrameInfo,
+                   CmObject
+                   );
+      }
       break;
 
     case EArmObjGicCInfo:
@@ -1424,115 +1929,13 @@ GetArmNameSpaceObject (
                  CmObject
                  );
       break;
-    case EArmObjSerialConsolePortInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 &PlatformRepo->SpcrSerialPort,
-                 sizeof (PlatformRepo->SpcrSerialPort),
-                 1,
-                 CmObject
-                 );
-      break;
 
-    case EArmObjSerialDebugPortInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 &PlatformRepo->DbgSerialPort,
-                 sizeof (PlatformRepo->DbgSerialPort),
-                 1,
-                 CmObject
-                 );
-      break;
     case EArmObjGicMsiFrameInfo:
       Status = HandleCmObject (
                  CmObjectId,
                  &PlatformRepo->GicMsiFrameInfo,
                  sizeof (PlatformRepo->GicMsiFrameInfo),
                  1,
-                 CmObject
-                 );
-      break;
-
-    case EArmObjProcHierarchyInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 PlatformRepo->ProcHierarchyInfo,
-                 sizeof (PlatformRepo->ProcHierarchyInfo),
-                 ARRAY_SIZE (PlatformRepo->ProcHierarchyInfo),
-                 CmObject
-                 );
-      break;
-
-    case EArmObjCacheInfo:
-      Status = HandleCmObject (
-                 CmObjectId,
-                 PlatformRepo->CacheInfo,
-                 sizeof (PlatformRepo->CacheInfo),
-                 ARRAY_SIZE (PlatformRepo->CacheInfo),
-                 CmObject
-                 );
-      break;
-
-    case EArmObjCmRef:
-      Status = HandleCmObjectSearchPlatformRepo (
-                 This,
-                 CmObjectId,
-                 Token,
-                 GetCmObjRefs,
-                 CmObject
-                 );
-      break;
-
-    case EArmObjPciConfigSpaceInfo:
-      if (PlatformRepo->JunoRevision != JUNO_REVISION_R0) {
-        Status = HandleCmObject (
-                   CmObjectId,
-                   &PlatformRepo->PciConfigInfo,
-                   sizeof (PlatformRepo->PciConfigInfo),
-                   1,
-                   CmObject
-                   );
-      } else {
-        // No PCIe on Juno R0.
-        Status = EFI_NOT_FOUND;
-      }
-      break;
-
-    case EArmObjLpiInfo:
-      Status = HandleCmObjectRefByToken (
-                 This,
-                 CmObjectId,
-                 NULL,
-                 0,
-                 0,
-                 Token,
-                 GetLpiInfo,
-                 CmObject
-                 );
-      break;
-
-    case EArmObjPciAddressMapInfo:
-      Status = HandleCmObjectRefByToken (
-                 This,
-                 CmObjectId,
-                 PlatformRepo->PciAddressMapInfo,
-                 sizeof (PlatformRepo->PciAddressMapInfo),
-                 ARRAY_SIZE (PlatformRepo->PciAddressMapInfo),
-                 Token,
-                 GetPciAddressMapInfo,
-                 CmObject
-                 );
-      break;
-
-    case EArmObjPciInterruptMapInfo:
-      Status = HandleCmObjectRefByToken (
-                 This,
-                 CmObjectId,
-                 PlatformRepo->PciInterruptMapInfo,
-                 sizeof (PlatformRepo->PciInterruptMapInfo),
-                 ARRAY_SIZE (PlatformRepo->PciInterruptMapInfo),
-                 Token,
-                 GetPciInterruptMapInfo,
                  CmObject
                  );
       break;
@@ -1634,6 +2037,9 @@ ArmJunoPlatformGetObject (
   switch (GET_CM_NAMESPACE_ID (CmObjectId)) {
     case EObjNameSpaceStandard:
       Status = GetStandardNameSpaceObject (This, CmObjectId, Token, CmObject);
+      break;
+    case EObjNameSpaceArchCommon:
+      Status = GetArchCommonNameSpaceObject (This, CmObjectId, Token, CmObject);
       break;
     case EObjNameSpaceArm:
       Status = GetArmNameSpaceObject (This, CmObjectId, Token, CmObject);

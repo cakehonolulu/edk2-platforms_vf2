@@ -20,6 +20,18 @@
 #include <Ppi/IoMmu.h>
 #include "IntelVTdDmarPei.h"
 
+VOID
+SetGlobalCommandRegisterBits (
+  IN UINTN     VtdUnitBaseAddress,
+  IN UINT32    BitMask
+  );
+
+VOID
+ClearGlobalCommandRegisterBits (
+  IN UINTN     VtdUnitBaseAddress,
+  IN UINT32    BitMask
+  );
+
 /**
   Flush VTD page table and context table memory.
 
@@ -58,6 +70,7 @@ FlushWriteBuffer (
 
   if (CapReg.Bits.RWBF != 0) {
     Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
+    Reg32 = (Reg32 & 0x96FFFFFF);       // Reset the one-shot bits
     MmioWrite32 (VtdUnitBaseAddress + R_GCMD_REG, Reg32 | B_GMCD_REG_WBF);
     do {
       Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
@@ -104,11 +117,7 @@ PerpareCacheInvalidationInterface (
   Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
   if ((Reg32 & B_GSTS_REG_QIES) != 0) {
     DEBUG ((DEBUG_INFO,"Queued Invalidation Interface was enabled.\n"));
-    Reg32 &= (~B_GSTS_REG_QIES);
-    MmioWrite32 (VtdUnitBaseAddress + R_GCMD_REG, Reg32);
-    do {
-      Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
-    } while ((Reg32 & B_GSTS_REG_QIES) != 0);
+    ClearGlobalCommandRegisterBits (VtdUnitBaseAddress, B_GMCD_REG_QIE);
     MmioWrite64 (VtdUnitBaseAddress + R_IQA_REG, 0);
   }
 
@@ -144,13 +153,8 @@ PerpareCacheInvalidationInterface (
   // Enable the queued invalidation interface through the Global Command Register.
   // When enabled, hardware sets the QIES field in the Global Status Register.
   //
-  Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
-  Reg32 |= B_GMCD_REG_QIE;
-  MmioWrite32 (VtdUnitBaseAddress + R_GCMD_REG, Reg32);
-  DEBUG ((DEBUG_INFO, "Enable Queued Invalidation Interface. GCMD_REG = 0x%x\n", Reg32));
-  do {
-    Reg32 = MmioRead32 (VtdUnitBaseAddress + R_GSTS_REG);
-  } while ((Reg32 & B_GSTS_REG_QIES) == 0);
+  DEBUG ((DEBUG_INFO, "Enable Queued Invalidation Interface.\n"));
+  SetGlobalCommandRegisterBits (VtdUnitBaseAddress, B_GMCD_REG_QIE);
 
   return EFI_SUCCESS;
 }
@@ -165,16 +169,9 @@ DisableQueuedInvalidationInterface (
   IN VTD_UNIT_INFO *VTdUnitInfo
   )
 {
-  UINT32         Reg32;
-
   if (VTdUnitInfo->EnableQueuedInvalidation != 0) {
-    Reg32 = MmioRead32 (VTdUnitInfo->VtdUnitBaseAddress + R_GSTS_REG);
-    Reg32 &= (~B_GMCD_REG_QIE);
-    MmioWrite32 (VTdUnitInfo->VtdUnitBaseAddress + R_GCMD_REG, Reg32);
-    DEBUG ((DEBUG_INFO, "Disable Queued Invalidation Interface. GCMD_REG = 0x%x\n", Reg32));
-    do {
-      Reg32 = MmioRead32 (VTdUnitInfo->VtdUnitBaseAddress + R_GSTS_REG);
-    } while ((Reg32 & B_GSTS_REG_QIES) != 0);
+    DEBUG ((DEBUG_INFO, "Disable Queued Invalidation Interface.\n"));
+    ClearGlobalCommandRegisterBits (VTdUnitInfo->VtdUnitBaseAddress, B_GMCD_REG_QIE);
 
     if (VTdUnitInfo->QiDescBuffer != NULL) {
       FreePages(VTdUnitInfo->QiDescBuffer, EFI_SIZE_TO_PAGES (VTdUnitInfo->QiDescBufferSize));
@@ -206,7 +203,7 @@ QueuedInvalidationCheckFault (
   if (FaultReg & (B_FSTS_REG_IQE | B_FSTS_REG_ITE | B_FSTS_REG_ICE)) {
     IqercdReg.Uint64 = MmioRead64 (VTdUnitInfo->VtdUnitBaseAddress + R_IQERCD_REG);
 
-    DEBUG((DEBUG_ERROR, "Detect Queue Invalidation Error [0x%08x] - IQERCD [0x%016lx]\n", FaultReg, IqercdReg.Uint64));
+    DEBUG((DEBUG_ERROR, "VTD 0x%x Detect Queue Invalidation Error [0x%08x] - IQERCD [0x%016lx]\n", VTdUnitInfo->VtdUnitBaseAddress, FaultReg, IqercdReg.Uint64));
 
     MmioWrite32 (VTdUnitInfo->VtdUnitBaseAddress + R_FSTS_REG, FaultReg);
     return RETURN_DEVICE_ERROR;
@@ -242,6 +239,7 @@ SubmitQueuedInvalidationDescriptor (
   VTD_IQA_REG    IqaReg;
   VTD_IQT_REG    IqtReg;
   VTD_IQH_REG    IqhReg;
+  UINT64         IQBassAddress;
 
   if (Desc == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -249,19 +247,29 @@ SubmitQueuedInvalidationDescriptor (
 
   VtdUnitBaseAddress = VTdUnitInfo->VtdUnitBaseAddress;
   IqaReg.Uint64 = MmioRead64 (VtdUnitBaseAddress + R_IQA_REG);
-  if (IqaReg.Bits.IQA == 0) {
+  //
+  // Get IQA_REG.IQA (Invalidation Queue Base Address)
+  //
+  IQBassAddress = RShiftU64 (IqaReg.Uint64, 12);
+  if (IQBassAddress == 0) {
     DEBUG ((DEBUG_ERROR,"Invalidation Queue Buffer not ready [0x%lx]\n", IqaReg.Uint64));
     return EFI_NOT_READY;
   }
   IqtReg.Uint64 = MmioRead64 (VtdUnitBaseAddress + R_IQT_REG);
 
-  if (IqaReg.Bits.DW == 0) {
+  //
+  // Check IQA_REG.DW (Descriptor Width)
+  //
+  if ((IqaReg.Uint64 & BIT11) == 0) {
     //
     // 128-bit descriptor
     //
     QueueSize = (UINTN) (1 << (IqaReg.Bits.QS + 8));
-    Qi128Desc = (QI_DESC *) (UINTN) (IqaReg.Bits.IQA << VTD_PAGE_SHIFT);
-    QueueTail = (UINTN) IqtReg.Bits128Desc.QT;
+    Qi128Desc = (QI_DESC *) (UINTN) LShiftU64 (IQBassAddress, VTD_PAGE_SHIFT);
+    //
+    // Get IQT_REG.QT for 128-bit descriptors
+    //
+    QueueTail = (UINTN) (RShiftU64 (IqtReg.Uint64, 4) & 0x7FFF);
     Qi128Desc += QueueTail;
     Qi128Desc->Low = Desc->Uint64[0];
     Qi128Desc->High = Desc->Uint64[1];
@@ -274,14 +282,18 @@ SubmitQueuedInvalidationDescriptor (
             Desc->Uint64[0],
             Desc->Uint64[1]));
 
-    IqtReg.Bits128Desc.QT = QueueTail;
+    IqtReg.Uint64 &= ~(0x7FFF << 4);
+    IqtReg.Uint64 |= LShiftU64 (QueueTail, 4);
   } else {
     //
     // 256-bit descriptor
     //
     QueueSize = (UINTN) (1 << (IqaReg.Bits.QS + 7));
-    Qi256Desc = (QI_256_DESC *) (UINTN) (IqaReg.Bits.IQA << VTD_PAGE_SHIFT);
-    QueueTail = (UINTN) IqtReg.Bits256Desc.QT;
+    Qi256Desc = (QI_256_DESC *) (UINTN) LShiftU64 (IQBassAddress, VTD_PAGE_SHIFT);
+    //
+    // Get IQT_REG.QT for 256-bit descriptors
+    //
+    QueueTail = (UINTN) (RShiftU64 (IqtReg.Uint64, 5) & 0x3FFF);
     Qi256Desc += QueueTail;
     Qi256Desc->Uint64[0] = Desc->Uint64[0];
     Qi256Desc->Uint64[1] = Desc->Uint64[1];
@@ -298,7 +310,8 @@ SubmitQueuedInvalidationDescriptor (
             Desc->Uint64[2],
             Desc->Uint64[3]));
 
-    IqtReg.Bits256Desc.QT = QueueTail;
+    IqtReg.Uint64 &= ~(0x3FFF << 5);
+    IqtReg.Uint64 |= LShiftU64 (QueueTail, 5);
   }
 
   //
@@ -315,10 +328,13 @@ SubmitQueuedInvalidationDescriptor (
     }
 
     IqhReg.Uint64 = MmioRead64 (VtdUnitBaseAddress + R_IQH_REG);
-    if (IqaReg.Bits.DW == 0) {
-      QueueHead = (UINTN) IqhReg.Bits128Desc.QH;
+    //
+    // Check IQA_REG.DW (Descriptor Width) and get IQH_REG.QH
+    //
+    if ((IqaReg.Uint64 & BIT11) == 0) {
+      QueueHead = (UINTN) (RShiftU64 (IqhReg.Uint64, 4) & 0x7FFF);
     } else {
-      QueueHead = (UINTN) IqhReg.Bits256Desc.QH;
+      QueueHead = (UINTN) (RShiftU64 (IqhReg.Uint64, 5) & 0x3FFF);
     }
   } while (QueueTail != QueueHead);
 
@@ -410,7 +426,7 @@ InvalidateIOTLB (
     // Queued Invalidation
     //
     CapReg.Uint64 = MmioRead64 (VTdUnitInfo->VtdUnitBaseAddress + R_CAP_REG);
-    QiDesc.Uint64[0] = QI_IOTLB_DID(0) | QI_IOTLB_DR(CAP_READ_DRAIN(CapReg.Uint64)) | QI_IOTLB_DW(CAP_WRITE_DRAIN(CapReg.Uint64)) | QI_IOTLB_GRAN(1) | QI_IOTLB_TYPE;
+    QiDesc.Uint64[0] = QI_IOTLB_DID(0) | (CapReg.Bits.DRD ? QI_IOTLB_DR(1) : QI_IOTLB_DR(0)) | (CapReg.Bits.DWD ? QI_IOTLB_DW(1) : QI_IOTLB_DW(0)) | QI_IOTLB_GRAN(1) | QI_IOTLB_TYPE;
     QiDesc.Uint64[1] = QI_IOTLB_ADDR(0) | QI_IOTLB_IH(0) | QI_IOTLB_AM(0);
     QiDesc.Uint64[2] = 0;
     QiDesc.Uint64[3] = 0;

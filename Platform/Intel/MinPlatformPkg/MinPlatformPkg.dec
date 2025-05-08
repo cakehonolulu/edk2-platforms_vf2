@@ -6,7 +6,7 @@
 # INF files to generate AutoGen.c and AutoGen.h files
 # for the build infrastructure.
 #
-# Copyright (c) 2017 - 2021, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2017 - 2024, Intel Corporation. All rights reserved.<BR>
 # Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -87,6 +87,8 @@
   VariableWriteLib|Include/Library/VariableWriteLib.h
   LargeVariableReadLib|Include/Library/LargeVariableReadLib.h
   LargeVariableWriteLib|Include/Library/LargeVariableWriteLib.h
+
+  PhatAcpiLib|Include/Library/PhatAcpiLib.h
 
 [PcdsFixedAtBuild, PcdsPatchableInModule]
 
@@ -266,6 +268,9 @@
   gMinPlatformPkgTokenSpaceGuid.PcdFlashFvFspUBase|0x00000000|UINT32|0x2000002A
   gMinPlatformPkgTokenSpaceGuid.PcdFlashFvFspUSize|0x00000000|UINT32|0x2000002B
   gMinPlatformPkgTokenSpaceGuid.PcdFlashFvFspUOffset|0x00000000|UINT32|0x2000002C
+  gMinPlatformPkgTokenSpaceGuid.PcdFlashFvFspIBase|0x00000000|UINT32|0x20000036
+  gMinPlatformPkgTokenSpaceGuid.PcdFlashFvFspISize|0x00000000|UINT32|0x20000037
+  gMinPlatformPkgTokenSpaceGuid.PcdFlashFvFspIOffset|0x00000000|UINT32|0x20000038
 
   # GUID of Shell file to be loaded, default value is gUefiShellFileGuid define in ShellPkg.dec
   gMinPlatformPkgTokenSpaceGuid.PcdShellFile|{GUID({0x7c04a583, 0x9e3e, 0x4f1c, {0xad, 0x65, 0xe0, 0x52, 0x68, 0xd0, 0xb4, 0xd1}})}|VOID*|0x20000230
@@ -311,6 +316,12 @@
 
   gMinPlatformPkgTokenSpaceGuid.PcdPlatformMemoryCheckLevel|0|UINT32|0x30000009
 
+  ## Controls whether the FSP NVS buffer is saved as compressed data.
+  # Data compression can significantly reduce variable storage usage for FSP NVS buffer data.
+  # Platforms that choose to compress the data will need to decompress the variable data upon
+  # extraction.
+  gMinPlatformPkgTokenSpaceGuid.PcdEnableCompressedFspNvsBuffer|FALSE|BOOLEAN|0x30000010
+
   ## This PCD is to control which device is the potential trusted console input device.<BR><BR>
   # For example:<BR>
   # USB Short Form: UsbHID(0xFFFF,0xFFFF,0x1,0x1)<BR>
@@ -347,7 +358,7 @@
   gMinPlatformPkgTokenSpaceGuid.PcdFadtIaPcBootArch|0x0001|UINT16|0x90000026
   gMinPlatformPkgTokenSpaceGuid.PcdFadtFlags|0x000086A5|UINT32|0x90000027
   gMinPlatformPkgTokenSpaceGuid.PcdFadtMajorVersion|0x06|UINT8|0x90000030
-  gMinPlatformPkgTokenSpaceGuid.PcdFadtMinorVersion|0x03|UINT8|0x90000031
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtMinorVersion|0x05|UINT8|0x90000031
 
 [PcdsFixedAtBuild]
 
@@ -387,6 +398,27 @@
   #
   gMinPlatformPkgTokenSpaceGuid.PcdFspDispatchModeUseFspPeiMain|TRUE|BOOLEAN|0xF00000A8
 
+  ## Reset Vector in FSP
+  # FALSE: Reset Vector is in FSP Wrapper
+  # TRUE:  Reset Vector is in FSP - This is only supported in X64
+  #
+  gMinPlatformPkgTokenSpaceGuid.PcdFspWrapperResetVectorInFsp|FALSE|BOOLEAN|0xF00000A9
+
+  ## BFV Location for Reset Vector in FSP
+  # The default of BFV Location for Reset Vector in FSP is 0x00000000FFFF0000.
+  #
+  gMinPlatformPkgTokenSpaceGuid.PcdFspWrapperBfvforResetVectorInFsp|0x00000000FFFF0000|UINT64|0xF00000AA
+
+  ## FSP-T UPD Header Revision
+  # The default of FSP-T UPD Header Revision is 0.
+  #
+  gMinPlatformPkgTokenSpaceGuid.PcdFsptUpdHeaderRevision|0x0|UINT8|0xF00000AB
+
+  ## FSP-T ARCH UPD Revision
+  # The default of FSP-T ARCH UPD Revision is 0.
+  #
+  gMinPlatformPkgTokenSpaceGuid.PcdFsptArchUpdRevision|0x0|UINT8|0xF00000AC
+
 [PcdsFeatureFlag]
 
   gMinPlatformPkgTokenSpaceGuid.PcdStopAfterDebugInit     |FALSE|BOOLEAN|0xF00000A1
@@ -396,3 +428,4 @@
   gMinPlatformPkgTokenSpaceGuid.PcdTpm2Enable             |FALSE|BOOLEAN|0xF00000A5
   gMinPlatformPkgTokenSpaceGuid.PcdPerformanceEnable      |FALSE|BOOLEAN|0xF00000A7
   gMinPlatformPkgTokenSpaceGuid.PcdSerialTerminalEnable   |FALSE|BOOLEAN|0xF00000B0
+  gMinPlatformPkgTokenSpaceGuid.PcdStandaloneMmEnable     |FALSE|BOOLEAN|0xF00000B1

@@ -1,7 +1,7 @@
 ## @file
 #  The main build description file for the X58Ich10 board.
 #
-# Copyright (c) 2019 - 2021, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2019 - 2023, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -72,15 +72,11 @@
 #######################################
 # Component Includes
 #######################################
-# @todo: Change below line to [Components.$(PEI_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed
-[Components.IA32]
+[Components.$(PEI_ARCH)]
 !include $(PLATFORM_PACKAGE)/Include/Dsc/CorePeiInclude.dsc
 !include $(SKT_PKG)/SktPkgPei.dsc
 
-# @todo: Change below line to [Components.$(DXE_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed
-[Components.X64]
+[Components.$(DXE_ARCH)]
 !include $(PLATFORM_PACKAGE)/Include/Dsc/CoreDxeInclude.dsc
 
 #######################################
@@ -102,6 +98,7 @@
   CpuExceptionHandlerLib|MdeModulePkg/Library/CpuExceptionHandlerLibNull/CpuExceptionHandlerLibNull.inf
   S3BootScriptLib|MdeModulePkg/Library/PiDxeS3BootScriptLib/DxeS3BootScriptLib.inf
   SerialPortLib|PcAtChipsetPkg/Library/SerialIoLib/SerialIoLib.inf
+  StandaloneMmMemLib|StandaloneMmPkg/Library/StandaloneMmMemLib/StandaloneMmMemLib.inf
 
   #####################################
   # Platform Package
@@ -116,9 +113,7 @@
   #######################################
   DxeLoadLinuxLib|$(BOARD_PKG)/Library/LoadLinuxLib/DxeLoadLinuxLib.inf
   LogoLib|$(BOARD_PKG)/Library/DxeLogoLib/DxeLogoLib.inf
-  NvVarsFileLib|$(BOARD_PKG)/Library/NvVarsFileLib/NvVarsFileLib.inf
   ReportFvLib|$(BOARD_PKG)/Library/PeiReportFvLib/PeiReportFvLib.inf
-  SerializeVariablesLib|$(BOARD_PKG)/Library/SerializeVariablesLib/SerializeVariablesLib.inf
   SiliconPolicyInitLib|$(BOARD_PKG)/Policy/Library/SiliconPolicyInitLib/SiliconPolicyInitLib.inf
   SiliconPolicyUpdateLib|$(BOARD_PKG)/Policy/Library/SiliconPolicyUpdateLib/SiliconPolicyUpdateLib.inf
   PlatformCmosAccessLib|BoardModulePkg/Library/PlatformCmosAccessLibNull/PlatformCmosAccessLibNull.inf
@@ -137,11 +132,13 @@
   PeiResourcePublicationLib|MdePkg/Library/PeiResourcePublicationLib/PeiResourcePublicationLib.inf
   MpInitLib|UefiCpuPkg/Library/MpInitLib/PeiMpInitLib.inf
   CcExitLib|UefiCpuPkg/Library/CcExitLibNull/CcExitLibNull.inf
+  AmdSvsmLib|UefiCpuPkg/Library/AmdSvsmLibNull/AmdSvsmLibNull.inf
 
   #####################################
   # Silicon Package
   #####################################
   ReportCpuHobLib|IntelSiliconPkg/Library/ReportCpuHobLib/ReportCpuHobLib.inf
+  SmmAccessLib|IntelSiliconPkg/Feature/SmmAccess/Library/PeiSmmAccessLib/PeiSmmAccessLib.inf
 
   #####################################
   # Platform Package
@@ -151,6 +148,11 @@
 !endif
   TestPointLib|$(PLATFORM_PACKAGE)/Test/Library/TestPointLib/PeiTestPointLib.inf
   SetCacheMtrrLib|$(PLATFORM_PACKAGE)/Library/SetCacheMtrrLib/SetCacheMtrrLib.inf
+
+  #######################################
+  # Board Package
+  #######################################
+  MmPlatformHobProducerLib|$(BOARD_PKG)/Library/MmPlatformHobProducerLib/MmPlatformHobProducerLib.inf
 
 [LibraryClasses.common.DXE_DRIVER]
 
@@ -165,7 +167,7 @@
   BoardBdsHookLib|$(BOARD_PKG)/Library/BoardBdsHookLib/BoardBdsHookLib.inf
   BoardBootManagerLib|$(BOARD_PKG)/Library/BoardBootManagerLib/BoardBootManagerLib.inf
 
-[LibraryClasses.common.DXE_SMM_DRIVER]
+[LibraryClasses.common.DXE_SMM_DRIVER, LibraryClasses.common.MM_STANDALONE]
   #######################################
   # Silicon Initialization Package
   #######################################
@@ -174,28 +176,17 @@
 #######################################
 # PEI Components
 #######################################
-# @todo: Change below line to [Components.$(PEI_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed
-[Components.IA32]
+[Components.$(PEI_ARCH)]
   #######################################
   # Edk2 Packages
   #######################################
   #  S3 SMM driver
   #  @todo: UefiCpuPkg/PiSmmCommunication/PiSmmCommunicationPei.inf
-  UefiCpuPkg/Universal/Acpi/S3Resume2Pei/S3Resume2Pei.inf {
-    <LibraryClasses>
-      LockBoxLib|MdeModulePkg/Library/SmmLockBoxLib/SmmLockBoxPeiLib.inf
-  }
+  UefiCpuPkg/Universal/Acpi/S3Resume2Pei/S3Resume2Pei.inf
 
   #######################################
   # Silicon Initialization Package
   #######################################
-!if gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly == FALSE
-  $(SKT_PKG)/Smm/Access/SmmAccessPei.inf {
-    <LibraryClasses>
-      PcdLib|MdePkg/Library/PeiPcdLib/PeiPcdLib.inf
-  }
-!endif
 
   #####################################
   # Platform Package
@@ -228,9 +219,7 @@
 #######################################
 # DXE Components
 #######################################
-# @todo: Change below line to [Components.$(DXE_ARCH)] after https://bugzilla.tianocore.org/show_bug.cgi?id=2308
-#        is completed
-[Components.X64]
+[Components.$(DXE_ARCH)]
   #######################################
   # Edk2 Packages
   #######################################
@@ -253,9 +242,20 @@
   MdeModulePkg/Universal/PrintDxe/PrintDxe.inf
 !if gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly == FALSE
   UefiCpuPkg/CpuS3DataDxe/CpuS3DataDxe.inf
-  UefiCpuPkg/PiSmmCpuDxeSmm/PiSmmCpuDxeSmm.inf
+  !if gMinPlatformPkgTokenSpaceGuid.PcdStandaloneMmEnable == TRUE
+    UefiCpuPkg/PiSmmCpuDxeSmm/PiSmmCpuStandaloneMm.inf
+  !else
+    UefiCpuPkg/PiSmmCpuDxeSmm/PiSmmCpuDxeSmm.inf
+  !endif
 !endif
   UefiCpuPkg/CpuDxe/CpuDxe.inf
+  !if gMinPlatformPkgTokenSpaceGuid.PcdStandaloneMmEnable == TRUE
+    StandaloneMmPkg/Drivers/MmCommunicationDxe/MmCommunicationDxe.inf {
+      <LibraryClasses>
+        NULL|StandaloneMmPkg/Library/VariableMmDependency/VariableMmDependency.inf
+        NULL|StandaloneMmPkg/Library/SmmLockBoxMmDependency/SmmLockBoxMmDependency.inf
+    }
+  !endif
 
   ShellPkg/Application/Shell/Shell.inf {
     <PcdsFixedAtBuild>
@@ -276,22 +276,38 @@
       ShellLib|ShellPkg/Library/UefiShellLib/UefiShellLib.inf
   }
 
+
+!if gMinPlatformPkgTokenSpaceGuid.PcdPerformanceEnable == TRUE
+  ShellPkg/DynamicCommand/DpDynamicCommand/DpDynamicCommand.inf {
+    <PcdsFixedAtBuild>
+      gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
+  }
+!endif
+
   #######################################
   # Silicon Initialization Package
   #######################################
   SimicsIch10BinPkg/UndiBinary/UndiDxe.inf
-!if gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly == FALSE
-  $(PCH_PKG)/SmmControl/RuntimeDxe/SmmControl2Dxe.inf
-  $(PCH_PKG)/Spi/Smm/PchSpiSmm.inf
-  $(SKT_PKG)/Smm/Access/SmmAccess2Dxe.inf
-  IntelSiliconPkg/Feature/Flash/SpiFvbService/SpiFvbServiceSmm.inf
-!endif
+  !if gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly == FALSE
+    $(PCH_PKG)/SmmControl/RuntimeDxe/SmmControl2Dxe.inf
+    IntelSiliconPkg/Feature/SmmAccess/SmmAccessDxe/SmmAccess.inf
+    !if gMinPlatformPkgTokenSpaceGuid.PcdStandaloneMmEnable == TRUE
+      $(PCH_PKG)/Spi/Smm/PchSpiStandaloneMm.inf
+      IntelSiliconPkg/Feature/Flash/SpiFvbService/SpiFvbServiceStandaloneMm.inf
+    !else
+      $(PCH_PKG)/Spi/Smm/PchSpiSmm.inf
+      IntelSiliconPkg/Feature/Flash/SpiFvbService/SpiFvbServiceSmm.inf
+    !endif
+  !endif
 
   #####################################
   # Platform Package
   #####################################
   $(PLATFORM_PACKAGE)/PlatformInit/PlatformInitDxe/PlatformInitDxe.inf
-  $(PLATFORM_PACKAGE)/PlatformInit/PlatformInitSmm/PlatformInitSmm.inf
+  !if gMinPlatformPkgTokenSpaceGuid.PcdStandaloneMmEnable == TRUE
+  !else
+    $(PLATFORM_PACKAGE)/PlatformInit/PlatformInitSmm/PlatformInitSmm.inf
+  !endif
 
   #######################################
   # Board Package

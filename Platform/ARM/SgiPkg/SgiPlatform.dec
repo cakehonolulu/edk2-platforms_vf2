@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2018 - 2022, Arm Limited. All rights reserved.
+#  Copyright (c) 2018 - 2024, Arm Limited. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -31,10 +31,14 @@
 [PcdsFeatureFlag.common]
   gArmSgiTokenSpaceGuid.PcdVirtioBlkSupported|FALSE|BOOLEAN|0x00000001
   gArmSgiTokenSpaceGuid.PcdVirtioNetSupported|FALSE|BOOLEAN|0x00000010
+  gArmSgiTokenSpaceGuid.PcdPcieEnable|FALSE|BOOLEAN|0x0000002E
 
 [PcdsFixedAtBuild]
   gArmSgiTokenSpaceGuid.PcdDramBlock2Base|0|UINT64|0x00000002
   gArmSgiTokenSpaceGuid.PcdDramBlock2Size|0|UINT64|0x00000003
+
+  # L2 Cache size
+  gArmSgiTokenSpaceGuid.PcdL2CacheSize|0x100000|UINT32|0x0000002F
 
   # Virtio Block device
   gArmSgiTokenSpaceGuid.PcdVirtioBlkBaseAddress|0x00000000|UINT32|0x00000004
@@ -46,8 +50,14 @@
   gArmSgiTokenSpaceGuid.PcdVirtioNetSize|0x00000000|UINT32|0x00000008
   gArmSgiTokenSpaceGuid.PcdVirtioNetInterrupt|0x00000000|UINT32|0x00000009
 
-  # Chip count on the platform
+  # Virtio P9
+  gArmSgiTokenSpaceGuid.PcdVirtioP9BaseAddress|0x00000000|UINT32|0x00000028
+  gArmSgiTokenSpaceGuid.PcdVirtioP9Size|0x00000000|UINT32|0x00000029
+  gArmSgiTokenSpaceGuid.PcdVirtioP9Interrupt|0x00000000|UINT32|0x0000002A
+
+  # Chip count on the platform and platform variant
   gArmSgiTokenSpaceGuid.PcdChipCount|1|UINT32|0x0000000B
+  gArmSgiTokenSpaceGuid.PcdPlatformVariant|0|UINT32|0x0000002D
 
   # GIC
   gArmSgiTokenSpaceGuid.PcdGicSize|0|UINT64|0x0000000A
@@ -73,7 +83,7 @@
   gArmSgiTokenSpaceGuid.PcdWdogWS1Gsiv|0|UINT32|0x00000014
 
   # SMMU
-  gArmSgiTokenSpaceGuid.PcdSmmuBase|0|UINT32|0x0000001D
+  gArmSgiTokenSpaceGuid.PcdSmmuBase|0|UINT64|0x0000001D
   gArmSgiTokenSpaceGuid.PcdSmmuSize|0|UINT32|0x0000001E
 
   # GPIO Controller
@@ -92,6 +102,10 @@
 
   # Address bus width
   gArmSgiTokenSpaceGuid.PcdMaxAddressBitsPerChip|0x0|UINT64|0x00000027
+
+  # IO virtualization block
+  gArmSgiTokenSpaceGuid.PcdIoVirtSocExpBlk0Base|0|UINT64|0x0000002B
+  gArmSgiTokenSpaceGuid.PcdIoVirtSocExpBlkUartEnable|0|UINT32|0x0000002C
 
 [Ppis]
   gNtFwConfigDtInfoPpiGuid     = { 0x6f606eb3, 0x9123, 0x4e15, { 0xa8, 0x9b, 0x0f, 0xac, 0x66, 0xef, 0xd0, 0x17 } }

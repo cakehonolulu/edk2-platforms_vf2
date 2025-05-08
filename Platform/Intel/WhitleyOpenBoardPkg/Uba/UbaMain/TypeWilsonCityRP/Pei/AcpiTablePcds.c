@@ -27,7 +27,7 @@ TypeWilsonCityRPPlatformUpdateAcpiTablePcds (
 
   EFI_HOB_GUID_TYPE                     *GuidHob;
 
-  DEBUG ((EFI_D_INFO, "Uba Callback: PlatformUpdateAcpiTablePcds entered\n"));
+  DEBUG ((DEBUG_INFO, "Uba Callback: PlatformUpdateAcpiTablePcds entered\n"));
 
   GuidHob = GetFirstGuidHob (&gEfiPlatformInfoGuid);
   ASSERT (GuidHob != NULL);
@@ -40,7 +40,7 @@ TypeWilsonCityRPPlatformUpdateAcpiTablePcds (
   //#
   Size = AsciiStrSize (AcpiName10nm);
   Status = PcdSetPtrS (PcdOemSkuAcpiName , &Size, AcpiName10nm);
-  DEBUG ((DEBUG_INFO, "%a TypeWilsonCityRP ICX\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a TypeWilsonCityRP ICX\n", __func__));
   ASSERT_EFI_ERROR (Status);
 
   Size = AsciiStrSize (OemTableIdXhci);

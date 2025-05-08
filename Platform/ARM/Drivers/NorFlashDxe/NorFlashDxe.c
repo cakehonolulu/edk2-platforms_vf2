@@ -1,6 +1,6 @@
 /** @file  NorFlashDxe.c
 
-  Copyright (c) 2011 - 2021, Arm Limited. All rights reserved.<BR>
+  Copyright (c) 2011 - 2024, Arm Limited. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -9,12 +9,13 @@
 #include <Library/UefiLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/NorFlashInfoLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/PcdLib.h>
 #include <Library/HobLib.h>
 #include <Library/DxeServicesTableLib.h>
 
-#include "NorFlash.h"
+#include "NorFlashCommon.h"
 
 STATIC EFI_EVENT  mNorFlashVirtualAddrChangeEvent;
 
@@ -30,6 +31,7 @@ NOR_FLASH_INSTANCE  mNorFlashInstanceTemplate = {
   NOR_FLASH_SIGNATURE, // Signature
   NULL,                // Handle ... NEED TO BE FILLED
 
+  0, // Optional HostControllerBaseAddress  ... NEED TO BE FILLED
   0, // DeviceBaseAddress ... NEED TO BE FILLED
   0, // RegionBaseAddress ... NEED TO BE FILLED
   0, // Size ... NEED TO BE FILLED
@@ -99,6 +101,7 @@ NOR_FLASH_INSTANCE  mNorFlashInstanceTemplate = {
 
 EFI_STATUS
 NorFlashCreateInstance (
+  IN UINTN                HostControllerBase,
   IN UINTN                NorFlashDeviceBase,
   IN UINTN                NorFlashRegionBase,
   IN UINTN                NorFlashSize,
@@ -110,6 +113,8 @@ NorFlashCreateInstance (
 {
   EFI_STATUS          Status;
   NOR_FLASH_INSTANCE  *Instance;
+  NOR_FLASH_INFO      *FlashInfo;
+  UINT8               JedecId[6];
 
   ASSERT (NorFlashInstance != NULL);
 
@@ -118,9 +123,10 @@ NorFlashCreateInstance (
     return EFI_OUT_OF_RESOURCES;
   }
 
-  Instance->DeviceBaseAddress = NorFlashDeviceBase;
-  Instance->RegionBaseAddress = NorFlashRegionBase;
-  Instance->Size              = NorFlashSize;
+  Instance->HostControllerBaseAddress = HostControllerBase;
+  Instance->DeviceBaseAddress         = NorFlashDeviceBase;
+  Instance->RegionBaseAddress         = NorFlashRegionBase;
+  Instance->Size                      = NorFlashSize;
 
   Instance->BlockIoProtocol.Media = &Instance->Media;
   Instance->Media.MediaId         = Index;
@@ -132,7 +138,23 @@ NorFlashCreateInstance (
 
   Instance->ShadowBuffer = AllocateRuntimePool (BlockSize);
   if (Instance->ShadowBuffer == NULL) {
-    return EFI_OUT_OF_RESOURCES;
+    Status = EFI_OUT_OF_RESOURCES;
+    goto error_handler1;
+  }
+
+  Status = NorFlashReadId (Instance, JedecId);
+  if (EFI_ERROR (Status)) {
+    if (Status != EFI_UNSUPPORTED) {
+      goto error_handler2;
+    }
+  } else {
+    Status = NorFlashGetInfo (JedecId, &FlashInfo, FALSE);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_WARN, "NorFlashCreateInstance: JedecID not supported\n"));
+    } else {
+      NorFlashPrintInfo (FlashInfo);
+      FreePool (FlashInfo);
+    }
   }
 
   if (SupportFvb) {
@@ -149,8 +171,7 @@ NorFlashCreateInstance (
                     NULL
                     );
     if (EFI_ERROR (Status)) {
-      FreePool (Instance);
-      return Status;
+      goto error_handler2;
     }
   } else {
     Status = gBS->InstallMultipleProtocolInterfaces (
@@ -164,167 +185,18 @@ NorFlashCreateInstance (
                     NULL
                     );
     if (EFI_ERROR (Status)) {
-      FreePool (Instance);
-      return Status;
+      goto error_handler2;
     }
   }
 
   *NorFlashInstance = Instance;
   return Status;
-}
 
-/**
- * This function unlock and erase an entire NOR Flash block.
- **/
-EFI_STATUS
-NorFlashUnlockAndEraseSingleBlock (
-  IN NOR_FLASH_INSTANCE  *Instance,
-  IN UINTN               BlockAddress
-  )
-{
-  EFI_STATUS  Status;
-  UINTN       Index;
-  EFI_TPL     OriginalTPL;
+error_handler2:
+  FreePool (Instance->ShadowBuffer);
 
-  if (!EfiAtRuntime ()) {
-    // Raise TPL to TPL_HIGH to stop anyone from interrupting us.
-    OriginalTPL = gBS->RaiseTPL (TPL_HIGH_LEVEL);
-  } else {
-    // This initialization is only to prevent the compiler to complain about the
-    // use of uninitialized variables
-    OriginalTPL = TPL_HIGH_LEVEL;
-  }
-
-  Index = 0;
-  // The block erase might fail a first time (SW bug ?). Retry it ...
-  do {
-    // Unlock the block if we have to
-    Status = NorFlashUnlockSingleBlockIfNecessary (Instance, BlockAddress);
-    if (EFI_ERROR (Status)) {
-      break;
-    }
-
-    Status = NorFlashEraseSingleBlock (Instance, BlockAddress);
-    Index++;
-  } while ((Index < NOR_FLASH_ERASE_RETRY) && (Status == EFI_WRITE_PROTECTED));
-
-  if (Index == NOR_FLASH_ERASE_RETRY) {
-    DEBUG ((DEBUG_ERROR, "EraseSingleBlock(BlockAddress=0x%08x: Block Locked Error (try to erase %d times)\n", BlockAddress, Index));
-  }
-
-  if (!EfiAtRuntime ()) {
-    // Interruptions can resume.
-    gBS->RestoreTPL (OriginalTPL);
-  }
-
-  return Status;
-}
-
-EFI_STATUS
-NorFlashWriteFullBlock (
-  IN NOR_FLASH_INSTANCE  *Instance,
-  IN EFI_LBA             Lba,
-  IN UINT32              *DataBuffer,
-  IN UINT32              BlockSizeInWords
-  )
-{
-  EFI_STATUS  Status;
-  UINTN       WordAddress;
-  UINT32      WordIndex;
-  UINTN       BufferIndex;
-  UINTN       BlockAddress;
-  UINTN       BuffersInBlock;
-  UINTN       RemainingWords;
-  EFI_TPL     OriginalTPL;
-  UINTN       Cnt;
-
-  Status = EFI_SUCCESS;
-
-  // Get the physical address of the block
-  BlockAddress = GET_NOR_BLOCK_ADDRESS (Instance->RegionBaseAddress, Lba, BlockSizeInWords * 4);
-
-  // Start writing from the first address at the start of the block
-  WordAddress = BlockAddress;
-
-  if (!EfiAtRuntime ()) {
-    // Raise TPL to TPL_HIGH to stop anyone from interrupting us.
-    OriginalTPL = gBS->RaiseTPL (TPL_HIGH_LEVEL);
-  } else {
-    // This initialization is only to prevent the compiler to complain about the
-    // use of uninitialized variables
-    OriginalTPL = TPL_HIGH_LEVEL;
-  }
-
-  Status = NorFlashUnlockAndEraseSingleBlock (Instance, BlockAddress);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "WriteSingleBlock: ERROR - Failed to Unlock and Erase the single block at 0x%X\n", BlockAddress));
-    goto EXIT;
-  }
-
-  // To speed up the programming operation, NOR Flash is programmed using the Buffered Programming method.
-
-  // Check that the address starts at a 32-word boundary, i.e. last 7 bits must be zero
-  if ((WordAddress & BOUNDARY_OF_32_WORDS) == 0x00) {
-    // First, break the entire block into buffer-sized chunks.
-    BuffersInBlock = (UINTN)(BlockSizeInWords * 4) / P30_MAX_BUFFER_SIZE_IN_BYTES;
-
-    // Then feed each buffer chunk to the NOR Flash
-    // If a buffer does not contain any data, don't write it.
-    for (BufferIndex = 0;
-         BufferIndex < BuffersInBlock;
-         BufferIndex++, WordAddress += P30_MAX_BUFFER_SIZE_IN_BYTES, DataBuffer += P30_MAX_BUFFER_SIZE_IN_WORDS
-         )
-    {
-      // Check the buffer to see if it contains any data (not set all 1s).
-      for (Cnt = 0; Cnt < P30_MAX_BUFFER_SIZE_IN_WORDS; Cnt++) {
-        if (~DataBuffer[Cnt] != 0 ) {
-          // Some data found, write the buffer.
-          Status = NorFlashWriteBuffer (
-                     Instance,
-                     WordAddress,
-                     P30_MAX_BUFFER_SIZE_IN_BYTES,
-                     DataBuffer
-                     );
-          if (EFI_ERROR (Status)) {
-            goto EXIT;
-          }
-
-          break;
-        }
-      }
-    }
-
-    // Finally, finish off any remaining words that are less than the maximum size of the buffer
-    RemainingWords = BlockSizeInWords % P30_MAX_BUFFER_SIZE_IN_WORDS;
-
-    if (RemainingWords != 0) {
-      Status = NorFlashWriteBuffer (Instance, WordAddress, (RemainingWords * 4), DataBuffer);
-      if (EFI_ERROR (Status)) {
-        goto EXIT;
-      }
-    }
-  } else {
-    // For now, use the single word programming algorithm
-    // It is unlikely that the NOR Flash will exist in an address which falls within a 32 word boundary range,
-    // i.e. which ends in the range 0x......01 - 0x......7F.
-    for (WordIndex = 0; WordIndex < BlockSizeInWords; WordIndex++, DataBuffer++, WordAddress = WordAddress + 4) {
-      Status = NorFlashWriteSingleWord (Instance, WordAddress, *DataBuffer);
-      if (EFI_ERROR (Status)) {
-        goto EXIT;
-      }
-    }
-  }
-
-EXIT:
-  if (!EfiAtRuntime ()) {
-    // Interruptions can resume.
-    gBS->RestoreTPL (OriginalTPL);
-  }
-
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "NOR FLASH Programming [WriteSingleBlock] failed at address 0x%08x. Exit Status = \"%r\".\n", WordAddress, Status));
-  }
-
+error_handler1:
+  FreePool (Instance);
   return Status;
 }
 
@@ -339,6 +211,27 @@ NorFlashInitialise (
   UINT32                 Index;
   NOR_FLASH_DESCRIPTION  *NorFlashDevices;
   BOOLEAN                ContainVariableStorage;
+  EFI_PHYSICAL_ADDRESS   HostControllerBaseAddress;
+
+  // Host controller base address region if available
+  HostControllerBaseAddress = PcdGet32 (PcdNorFlashRegBaseAddress);
+
+  if (HostControllerBaseAddress != 0) {
+    Status = gDS->AddMemorySpace (
+                    EfiGcdMemoryTypeMemoryMappedIo,
+                    HostControllerBaseAddress,
+                    SIZE_4KB,
+                    EFI_MEMORY_UC | EFI_MEMORY_RUNTIME
+                    );
+    ASSERT_EFI_ERROR (Status);
+
+    Status = gDS->SetMemorySpaceAttributes (
+                    HostControllerBaseAddress,
+                    SIZE_4KB,
+                    EFI_MEMORY_UC | EFI_MEMORY_RUNTIME
+                    );
+    ASSERT_EFI_ERROR (Status);
+  }
 
   Status = NorFlashPlatformInitialization ();
   if (EFI_ERROR (Status)) {
@@ -370,6 +263,7 @@ NorFlashInitialise (
     }
 
     Status = NorFlashCreateInstance (
+               HostControllerBaseAddress,
                NorFlashDevices[Index].DeviceBaseAddress,
                NorFlashDevices[Index].RegionBaseAddress,
                NorFlashDevices[Index].Size,
@@ -455,11 +349,11 @@ NorFlashFvbInitialize (
   // Install the Default FVB header if required
   if (EFI_ERROR (Status)) {
     // There is no valid header, so time to install one.
-    DEBUG ((DEBUG_INFO, "%a: The FVB Header is not valid.\n", __FUNCTION__));
+    DEBUG ((DEBUG_INFO, "%a: The FVB Header is not valid.\n", __func__));
     DEBUG ((
       DEBUG_INFO,
       "%a: Installing a correct one for this volume.\n",
-      __FUNCTION__
+      __func__
       ));
 
     // Erase all the NorFlash that is reserved for variable storage
@@ -503,4 +397,87 @@ NorFlashFvbInitialize (
   ASSERT_EFI_ERROR (Status);
 
   return Status;
+}
+
+/**
+  Fixup internal data so that EFI can be call in virtual mode.
+  Call the passed in Child Notify event and convert any pointers in
+  lib to virtual mode.
+
+  @param[in]    Event   The Event that is being processed
+  @param[in]    Context Event Context
+**/
+VOID
+EFIAPI
+NorFlashVirtualNotifyEvent (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  UINTN  Index;
+
+  for (Index = 0; Index < mNorFlashDeviceCount; Index++) {
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->HostControllerBaseAddress);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->DeviceBaseAddress);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->RegionBaseAddress);
+
+    // Convert BlockIo protocol
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->BlockIoProtocol.FlushBlocks);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->BlockIoProtocol.ReadBlocks);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->BlockIoProtocol.Reset);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->BlockIoProtocol.WriteBlocks);
+
+    // Convert Fvb
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->FvbProtocol.EraseBlocks);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->FvbProtocol.GetAttributes);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->FvbProtocol.GetBlockSize);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->FvbProtocol.GetPhysicalAddress);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->FvbProtocol.Read);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->FvbProtocol.SetAttributes);
+    EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->FvbProtocol.Write);
+
+    if (mNorFlashInstances[Index]->ShadowBuffer != NULL) {
+      EfiConvertPointer (0x0, (VOID **)&mNorFlashInstances[Index]->ShadowBuffer);
+    }
+  }
+
+  return;
+}
+
+/**
+  Lock all pending read/write to Nor flash device
+
+  @param[in]     *OriginalTPL     Pointer to Nor flash device Original TPL.
+**/
+VOID
+EFIAPI
+NorFlashLock (
+  IN EFI_TPL  *OriginalTPL
+  )
+{
+  if (!EfiAtRuntime ()) {
+    // Raise TPL to TPL_HIGH to stop anyone from interrupting us.
+    *OriginalTPL = gBS->RaiseTPL (TPL_HIGH_LEVEL);
+  } else {
+    // This initialization is only to prevent the compiler to complain about the
+    // use of uninitialized variables
+    *OriginalTPL = TPL_HIGH_LEVEL;
+  }
+}
+
+/**
+  Unlock all pending read/write to Nor flash device
+
+  @param[in]     OriginalTPL     Nor flash device Original TPL.
+**/
+VOID
+EFIAPI
+NorFlashUnlock (
+  IN EFI_TPL  OriginalTPL
+  )
+{
+  if (!EfiAtRuntime ()) {
+    // Interruptions can resume.
+    gBS->RestoreTPL (OriginalTPL);
+  }
 }

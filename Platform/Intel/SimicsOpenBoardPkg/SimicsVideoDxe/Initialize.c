@@ -179,7 +179,7 @@ QemuVideoCirrusModeSetup (
     ModeData->HorizontalResolution          = VideoMode->Width;
     ModeData->VerticalResolution            = VideoMode->Height;
     ModeData->ColorDepth                    = VideoMode->ColorDepth;
-    DEBUG ((EFI_D_INFO,
+    DEBUG ((DEBUG_INFO,
       "Adding Mode %d as Cirrus Internal Mode %d: %dx%d, %d-bit\n",
       (INT32) (ModeData - Private->ModeData),
       ModeData->InternalModeIndex,
@@ -288,15 +288,15 @@ QemuVideoBochsModeSetup (
         EFI_ERROR (
           Private->PciIo->Mem.Read (Private->PciIo, EfiPciIoWidthUint32,
                                 PCI_BAR_IDX2, 40, 1, &AvailableFbSize))) {
-      DEBUG ((EFI_D_ERROR, "%a: can't read size of drawable buffer from QXL "
-        "ROM\n", __FUNCTION__));
+      DEBUG ((DEBUG_ERROR, "%a: can't read size of drawable buffer from QXL "
+        "ROM\n", __func__));
       return EFI_NOT_FOUND;
     }
   } else {
     AvailableFbSize  = BochsRead (Private, VBE_DISPI_INDEX_VIDEO_MEMORY_64K);
     AvailableFbSize *= SIZE_64KB;
   }
-  DEBUG ((EFI_D_INFO, "%a: AvailableFbSize=0x%x\n", __FUNCTION__,
+  DEBUG ((DEBUG_INFO, "%a: AvailableFbSize=0x%x\n", __func__,
     AvailableFbSize));
 
   //
@@ -321,7 +321,7 @@ QemuVideoBochsModeSetup (
       ModeData->HorizontalResolution = VideoMode->Width;
       ModeData->VerticalResolution   = VideoMode->Height;
       ModeData->ColorDepth           = VideoMode->ColorDepth;
-      DEBUG ((EFI_D_INFO,
+      DEBUG ((DEBUG_INFO,
         "Adding Mode %d as Bochs Internal Mode %d: %dx%d, %d-bit\n",
         (INT32) (ModeData - Private->ModeData),
         ModeData->InternalModeIndex,

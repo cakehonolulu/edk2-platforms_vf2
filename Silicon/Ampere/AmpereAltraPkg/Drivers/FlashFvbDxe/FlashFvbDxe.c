@@ -6,6 +6,7 @@
 
 **/
 
+#include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/FlashLib.h>
 #include <Library/PcdLib.h>
@@ -17,11 +18,11 @@
 // These temporary buffers are used to calculate and convert linear virtual
 // to physical address
 //
-STATIC UINT64 mNvFlashBase;
-STATIC UINT32 mNvFlashSize;
-STATIC UINT32 mFlashBlockSize;
-STATIC UINT64 mNvStorageBase;
-STATIC UINT64 mNvStorageSize;
+STATIC UINT64  mNvFlashBase;
+STATIC UINT32  mNvFlashSize;
+STATIC UINT32  mFlashBlockSize;
+STATIC UINT64  mNvStorageBase;
+STATIC UINT64  mNvStorageSize;
 
 /**
   Fixup internal data so that EFI can be call in virtual mode.
@@ -34,8 +35,8 @@ STATIC UINT64 mNvStorageSize;
 VOID
 EFIAPI
 FlashFvbAddressChangeEvent (
-  IN EFI_EVENT Event,
-  IN VOID      *Context
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
   )
 {
   EfiConvertPointer (0x0, (VOID **)&mNvStorageBase);
@@ -59,8 +60,8 @@ FlashFvbAddressChangeEvent (
 EFI_STATUS
 EFIAPI
 FlashFvbDxeGetAttributes (
-  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL *This,
-  OUT      EFI_FVB_ATTRIBUTES_2                *Attributes
+  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL  *This,
+  OUT      EFI_FVB_ATTRIBUTES_2                 *Attributes
   )
 {
   ASSERT (Attributes != NULL);
@@ -102,8 +103,8 @@ FlashFvbDxeGetAttributes (
 EFI_STATUS
 EFIAPI
 FlashFvbDxeSetAttributes (
-  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL *This,
-  IN OUT   EFI_FVB_ATTRIBUTES_2                *Attributes
+  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL  *This,
+  IN OUT   EFI_FVB_ATTRIBUTES_2                 *Attributes
   )
 {
   return EFI_SUCCESS;  // ignore for now
@@ -129,8 +130,8 @@ FlashFvbDxeSetAttributes (
 EFI_STATUS
 EFIAPI
 FlashFvbDxeGetPhysicalAddress (
-  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL *This,
-  OUT      EFI_PHYSICAL_ADDRESS                *Address
+  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL  *This,
+  OUT      EFI_PHYSICAL_ADDRESS                 *Address
   )
 {
   ASSERT (Address != NULL);
@@ -169,13 +170,13 @@ FlashFvbDxeGetPhysicalAddress (
 EFI_STATUS
 EFIAPI
 FlashFvbDxeGetBlockSize (
-  IN  CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL *This,
-  IN        EFI_LBA                             Lba,
-  OUT       UINTN                               *BlockSize,
-  OUT       UINTN                               *NumberOfBlocks
+  IN  CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL  *This,
+  IN        EFI_LBA                              Lba,
+  OUT       UINTN                                *BlockSize,
+  OUT       UINTN                                *NumberOfBlocks
   )
 {
-  UINTN TotalNvStorageBlocks;
+  UINTN  TotalNvStorageBlocks;
 
   ASSERT (BlockSize != NULL);
   ASSERT (NumberOfBlocks != NULL);
@@ -188,7 +189,7 @@ FlashFvbDxeGetBlockSize (
   }
 
   *NumberOfBlocks = TotalNvStorageBlocks - (UINTN)Lba;
-  *BlockSize = mFlashBlockSize;
+  *BlockSize      = mFlashBlockSize;
 
   return EFI_SUCCESS;
 }
@@ -243,14 +244,14 @@ FlashFvbDxeGetBlockSize (
 EFI_STATUS
 EFIAPI
 FlashFvbDxeRead (
-  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL *This,
-  IN       EFI_LBA                             Lba,
-  IN       UINTN                               Offset,
-  IN OUT   UINTN                               *NumBytes,
-  IN OUT   UINT8                               *Buffer
+  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL  *This,
+  IN       EFI_LBA                              Lba,
+  IN       UINTN                                Offset,
+  IN OUT   UINTN                                *NumBytes,
+  IN OUT   UINT8                                *Buffer
   )
 {
-  EFI_STATUS Status;
+  EFI_STATUS  Status;
 
   ASSERT (NumBytes != NULL);
   ASSERT (Buffer != NULL);
@@ -334,14 +335,14 @@ FlashFvbDxeRead (
 EFI_STATUS
 EFIAPI
 FlashFvbDxeWrite (
-  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL *This,
-  IN       EFI_LBA                             Lba,
-  IN       UINTN                               Offset,
-  IN OUT   UINTN                               *NumBytes,
-  IN       UINT8                               *Buffer
+  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL  *This,
+  IN       EFI_LBA                              Lba,
+  IN       UINTN                                Offset,
+  IN OUT   UINTN                                *NumBytes,
+  IN       UINT8                                *Buffer
   )
 {
-  EFI_STATUS Status;
+  EFI_STATUS  Status;
 
   ASSERT (NumBytes != NULL);
   ASSERT (Buffer != NULL);
@@ -360,6 +361,8 @@ FlashFvbDxeWrite (
     DEBUG ((DEBUG_ERROR, "Failed to do flash write\n"));
     return EFI_DEVICE_ERROR;
   }
+
+  CopyMem ((UINT8 *)(UINTN)mNvStorageBase + Lba * mFlashBlockSize + Offset, Buffer, *NumBytes);
 
   return Status;
 }
@@ -415,14 +418,14 @@ FlashFvbDxeWrite (
 EFI_STATUS
 EFIAPI
 FlashFvbDxeErase (
-  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL *This,
+  IN CONST EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL  *This,
   ...
   )
 {
-  VA_LIST    Args;
-  EFI_LBA    Start;
-  UINTN      Length;
-  EFI_STATUS Status;
+  VA_LIST     Args;
+  EFI_LBA     Start;
+  UINTN       Length;
+  EFI_STATUS  Status;
 
   Status = EFI_SUCCESS;
 
@@ -449,7 +452,7 @@ FlashFvbDxeErase (
   return EFI_SUCCESS;
 }
 
-EFI_FIRMWARE_VOLUME_BLOCK_PROTOCOL mFlashFvbProtocol = {
+EFI_FIRMWARE_VOLUME_BLOCK_PROTOCOL  mFlashFvbProtocol = {
   FlashFvbDxeGetAttributes,
   FlashFvbDxeSetAttributes,
   FlashFvbDxeGetPhysicalAddress,
@@ -462,25 +465,25 @@ EFI_FIRMWARE_VOLUME_BLOCK_PROTOCOL mFlashFvbProtocol = {
 EFI_STATUS
 EFIAPI
 FlashFvbDxeInitialize (
-  IN EFI_HANDLE       ImageHandle,
-  IN EFI_SYSTEM_TABLE *SystemTable
+  IN EFI_HANDLE        ImageHandle,
+  IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  EFI_STATUS Status;
-  EFI_HANDLE FvbHandle = NULL;
-  EFI_EVENT  VirtualAddressChangeEvent;
+  EFI_STATUS  Status;
+  EFI_HANDLE  FvbHandle = NULL;
+  EFI_EVENT   VirtualAddressChangeEvent;
 
   // Get NV store FV info
   mFlashBlockSize = FixedPcdGet32 (PcdFvBlockSize);
-  mNvStorageBase = PcdGet64 (PcdFlashNvStorageVariableBase64);
-  mNvStorageSize = FixedPcdGet32 (PcdFlashNvStorageVariableSize) +
-                   FixedPcdGet32 (PcdFlashNvStorageFtwWorkingSize) +
-                   FixedPcdGet32 (PcdFlashNvStorageFtwSpareSize);
+  mNvStorageBase  = PcdGet64 (PcdFlashNvStorageVariableBase64);
+  mNvStorageSize  = FixedPcdGet32 (PcdFlashNvStorageVariableSize) +
+                    FixedPcdGet32 (PcdFlashNvStorageFtwWorkingSize) +
+                    FixedPcdGet32 (PcdFlashNvStorageFtwSpareSize);
 
   DEBUG ((
     DEBUG_INFO,
     "%a: Using NV store FV in-memory copy at 0x%lx with size 0x%x\n",
-    __FUNCTION__,
+    __func__,
     mNvStorageBase,
     mNvStorageSize
     ));
@@ -488,14 +491,14 @@ FlashFvbDxeInitialize (
   // Get NV Flash information
   Status = FlashGetNvRamInfo (&mNvFlashBase, &mNvFlashSize);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Failed to get Flash info\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Failed to get Flash info\n", __func__));
     return EFI_DEVICE_ERROR;
   }
 
   if (mNvFlashSize >= (mNvStorageSize * 2)) {
-    DEBUG ((DEBUG_INFO, "%a: NV store on Flash is valid\n", __FUNCTION__));
+    DEBUG ((DEBUG_INFO, "%a: NV store on Flash is valid\n", __func__));
   } else {
-    DEBUG ((DEBUG_ERROR, "%a: NV store on Flash is invalid\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: NV store on Flash is invalid\n", __func__));
     return EFI_DEVICE_ERROR;
   }
 

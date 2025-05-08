@@ -10,6 +10,7 @@
 #include <Uefi.h>
 #include <IndustryStandard/IpmiKcs.h>
 #include <Library/IoLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/ManageabilityTransportLib.h>
@@ -57,12 +58,12 @@ KcsTransportInit (
   CHAR16  *ManageabilityProtocolName;
 
   if (TransportToken == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Invalid transport token.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Invalid transport token.\n", __func__));
     return EFI_INVALID_PARAMETER;
   }
 
   if (HardwareInfo.Kcs == NULL) {
-    DEBUG ((DEBUG_INFO, "%a: Hardware information is not provided, use dfault settings.\n", __FUNCTION__));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "%a: Hardware information is not provided, use dfault settings.\n", __func__));
     mKcsHardwareInfo.MemoryMap                    = MANAGEABILITY_TRANSPORT_KCS_IO_MAP_IO;
     mKcsHardwareInfo.IoBaseAddress.IoAddress16    = PcdGet16 (PcdIpmiKcsIoBaseAddress);
     mKcsHardwareInfo.IoDataInAddress.IoAddress16  = mKcsHardwareInfo.IoBaseAddress.IoAddress16 + IPMI_KCS_DATA_IN_REGISTER_OFFSET;
@@ -81,21 +82,21 @@ KcsTransportInit (
   // Get protocol specification name.
   ManageabilityProtocolName = HelperManageabilitySpecName (TransportToken->ManageabilityProtocolSpecification);
 
-  DEBUG ((DEBUG_INFO, "%a: KCS transport hardware for %s is:\n", __FUNCTION__, ManageabilityProtocolName));
+  DEBUG ((DEBUG_MANAGEABILITY_INFO, "%a: KCS transport hardware for %s is:\n", __func__, ManageabilityProtocolName));
   if (mKcsHardwareInfo.MemoryMap) {
-    DEBUG ((DEBUG_INFO, "Memory Map I/O\n", __FUNCTION__));
-    DEBUG ((DEBUG_INFO, "Base Memory Address : 0x%08x\n", mKcsHardwareInfo.IoBaseAddress.IoAddress32));
-    DEBUG ((DEBUG_INFO, "Data in Address     : 0x%08x\n", mKcsHardwareInfo.IoDataInAddress.IoAddress32));
-    DEBUG ((DEBUG_INFO, "Data out Address    : 0x%08x\n", mKcsHardwareInfo.IoDataOutAddress.IoAddress32));
-    DEBUG ((DEBUG_INFO, "Command Address     : 0x%08x\n", mKcsHardwareInfo.IoCommandAddress.IoAddress32));
-    DEBUG ((DEBUG_INFO, "Status Address      : 0x%08x\n", mKcsHardwareInfo.IoStatusAddress.IoAddress32));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Memory Map I/O\n", __func__));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Base Memory Address : 0x%08x\n", mKcsHardwareInfo.IoBaseAddress.IoAddress32));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Data in Address     : 0x%08x\n", mKcsHardwareInfo.IoDataInAddress.IoAddress32));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Data out Address    : 0x%08x\n", mKcsHardwareInfo.IoDataOutAddress.IoAddress32));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Command Address     : 0x%08x\n", mKcsHardwareInfo.IoCommandAddress.IoAddress32));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Status Address      : 0x%08x\n", mKcsHardwareInfo.IoStatusAddress.IoAddress32));
   } else {
-    DEBUG ((DEBUG_INFO, "I/O Map I/O\n"));
-    DEBUG ((DEBUG_INFO, "Base I/O port    : 0x%04x\n", mKcsHardwareInfo.IoBaseAddress.IoAddress16));
-    DEBUG ((DEBUG_INFO, "Data in I/O port : 0x%04x\n", mKcsHardwareInfo.IoDataInAddress.IoAddress16));
-    DEBUG ((DEBUG_INFO, "Data out I/O port: 0x%04x\n", mKcsHardwareInfo.IoDataOutAddress.IoAddress16));
-    DEBUG ((DEBUG_INFO, "Command I/O port : 0x%04x\n", mKcsHardwareInfo.IoCommandAddress.IoAddress16));
-    DEBUG ((DEBUG_INFO, "Status I/O port  : 0x%04x\n", mKcsHardwareInfo.IoStatusAddress.IoAddress16));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "I/O Map I/O\n"));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Base I/O port    : 0x%04x\n", mKcsHardwareInfo.IoBaseAddress.IoAddress16));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Data in I/O port : 0x%04x\n", mKcsHardwareInfo.IoDataInAddress.IoAddress16));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Data out I/O port: 0x%04x\n", mKcsHardwareInfo.IoDataOutAddress.IoAddress16));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Command I/O port : 0x%04x\n", mKcsHardwareInfo.IoCommandAddress.IoAddress16));
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "Status I/O port  : 0x%04x\n", mKcsHardwareInfo.IoStatusAddress.IoAddress16));
   }
 
   return EFI_SUCCESS;
@@ -133,7 +134,7 @@ KcsTransportStatus (
   UINT8  TransportStatus;
 
   if (TransportToken == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Invalid transport token.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Invalid transport token.\n", __func__));
     return EFI_INVALID_PARAMETER;
   }
 
@@ -218,31 +219,29 @@ KcsTransportTransmitReceive (
   IN  MANAGEABILITY_TRANSFER_TOKEN   *TransferToken
   )
 {
-  EFI_STATUS                           Status;
-  MANAGEABILITY_IPMI_TRANSPORT_HEADER  *TransmitHeader;
+  EFI_STATUS                                 Status;
+  MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS  AdditionalStatus;
 
-  if (TransportToken == NULL || TransferToken == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Invalid transport token or transfer token.\n", __FUNCTION__));
-    return;
-  }
-
-  TransmitHeader = (MANAGEABILITY_IPMI_TRANSPORT_HEADER *)TransferToken->TransmitHeader;
-  if (TransmitHeader == NULL) {
-    TransferToken->TransferStatus = EFI_INVALID_PARAMETER;
+  if ((TransportToken == NULL) || (TransferToken == NULL)) {
+    DEBUG ((DEBUG_ERROR, "%a: Invalid transport token or transfer token.\n", __func__));
     return;
   }
 
   Status = KcsTransportSendCommand (
-             TransmitHeader->NetFn,
-             TransmitHeader->Command,
+             TransferToken->TransmitHeader,
+             TransferToken->TransmitHeaderSize,
+             TransferToken->TransmitTrailer,
+             TransferToken->TransmitTrailerSize,
              TransferToken->TransmitPackage.TransmitPayload,
              TransferToken->TransmitPackage.TransmitSizeInByte,
              TransferToken->ReceivePackage.ReceiveBuffer,
-             &TransferToken->ReceivePackage.ReceiveSizeInByte
+             &TransferToken->ReceivePackage.ReceiveSizeInByte,
+             &AdditionalStatus
              );
 
   TransferToken->TransferStatus = Status;
   KcsTransportStatus (TransportToken, &TransferToken->TransportAdditionalStatus);
+  TransferToken->TransportAdditionalStatus |= AdditionalStatus;
 }
 
 /**
@@ -268,12 +267,12 @@ AcquireTransportSession (
   MANAGEABILITY_TRANSPORT_KCS  *KcsTransportToken;
 
   if (ManageabilityProtocolSpec == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: No Manageability protocol specification specified.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: No Manageability protocol specification specified.\n", __func__));
     return EFI_INVALID_PARAMETER;
   }
 
   if (TransportToken == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: TransportToken is NULL.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: TransportToken is NULL.\n", __func__));
     return EFI_INVALID_PARAMETER;
   }
 
@@ -284,24 +283,25 @@ AcquireTransportSession (
              ManageabilityProtocolSpec
              );
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Protocol is not supported on this transport interface.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Protocol is not supported on this transport interface.\n", __func__));
     return EFI_UNSUPPORTED;
   }
 
   if (mSingleSessionToken != NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: This manageability transport library only supports one session transport token.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: This manageability transport library only supports one session transport token.\n", __func__));
     return EFI_OUT_OF_RESOURCES;
   }
 
   KcsTransportToken = AllocateZeroPool (sizeof (MANAGEABILITY_TRANSPORT_KCS));
   if (KcsTransportToken == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Fail to allocate memory for MANAGEABILITY_TRANSPORT_KCS\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Fail to allocate memory for MANAGEABILITY_TRANSPORT_KCS\n", __func__));
     return EFI_OUT_OF_RESOURCES;
   }
+
   KcsTransportToken->Token.Transport = AllocateZeroPool (sizeof (MANAGEABILITY_TRANSPORT));
   if (KcsTransportToken->Token.Transport == NULL) {
     FreePool (KcsTransportToken);
-    DEBUG ((DEBUG_ERROR, "%a: Fail to allocate memory for MANAGEABILITY_TRANSPORT\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Fail to allocate memory for MANAGEABILITY_TRANSPORT\n", __func__));
     return EFI_OUT_OF_RESOURCES;
   }
 
@@ -312,7 +312,7 @@ AcquireTransportSession (
   KcsTransportToken->Token.Transport->TransportName                       = L"KCS";
   KcsTransportToken->Token.Transport->Function.Version1_0                 = AllocateZeroPool (sizeof (MANAGEABILITY_TRANSPORT_FUNCTION_V1_0));
   if (KcsTransportToken->Token.Transport->Function.Version1_0 == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Fail to allocate memory for MANAGEABILITY_TRANSPORT_FUNCTION_V1_0\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Fail to allocate memory for MANAGEABILITY_TRANSPORT_FUNCTION_V1_0\n", __func__));
     FreePool (KcsTransportToken);
     FreePool (KcsTransportToken->Token.Transport);
     return EFI_OUT_OF_RESOURCES;
@@ -329,21 +329,45 @@ AcquireTransportSession (
 }
 
 /**
-  This function returns the transport capabilities.
+  This function returns the transport capabilities according to
+  the manageability protocol.
 
-  @param [out]  TransportFeature        Pointer to receive transport capabilities.
-                                        See the definitions of
-                                        MANAGEABILITY_TRANSPORT_CAPABILITY.
-
+  @param [in]   TransportToken             Transport token acquired from manageability
+                                           transport library.
+  @param [out]  TransportFeature           Pointer to receive transport capabilities.
+                                           See the definitions of
+                                           MANAGEABILITY_TRANSPORT_CAPABILITY.
+  @retval       EFI_SUCCESS                TransportCapability is returned successfully.
+  @retval       EFI_INVALID_PARAMETER      TransportToken is not a valid token.
 **/
-VOID
+EFI_STATUS
 GetTransportCapability (
+  IN MANAGEABILITY_TRANSPORT_TOKEN        *TransportToken,
   OUT MANAGEABILITY_TRANSPORT_CAPABILITY  *TransportCapability
   )
 {
-  if (TransportCapability != NULL) {
-    *TransportCapability = 0;
+  if ((TransportToken == NULL) || (TransportCapability == NULL)) {
+    return EFI_INVALID_PARAMETER;
   }
+
+  *TransportCapability = 0;
+  if (CompareGuid (
+        TransportToken->ManageabilityProtocolSpecification,
+        &gManageabilityProtocolIpmiGuid
+        ))
+  {
+    *TransportCapability |=
+      (MANAGEABILITY_TRANSPORT_CAPABILITY_MAXIMUM_PAYLOAD_NOT_AVAILABLE << MANAGEABILITY_TRANSPORT_CAPABILITY_MAXIMUM_PAYLOAD_BIT_POSITION);
+  } else if (CompareGuid (
+               TransportToken->ManageabilityProtocolSpecification,
+               &gManageabilityProtocolMctpGuid
+               ))
+  {
+    *TransportCapability |=
+      (MCTP_KCS_MTU_IN_POWER_OF_2 << MANAGEABILITY_TRANSPORT_CAPABILITY_MAXIMUM_PAYLOAD_BIT_POSITION);
+  }
+
+  return EFI_SUCCESS;
 }
 
 /**
@@ -382,7 +406,7 @@ ReleaseTransportSession (
   }
 
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Fail to release KCS transport token (%r).\n", __FUNCTION__, Status));
+    DEBUG ((DEBUG_ERROR, "%a: Fail to release KCS transport token (%r).\n", __func__, Status));
   }
 
   return Status;

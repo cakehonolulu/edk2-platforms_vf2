@@ -17,9 +17,9 @@
 
 #include "IpmiProtocolCommon.h"
 
-MANAGEABILITY_TRANSPORT_TOKEN  *mTransportToken = NULL;
-CHAR16                         *mTransportName;
-
+MANAGEABILITY_TRANSPORT_TOKEN                 *mTransportToken = NULL;
+CHAR16                                        *mTransportName;
+UINT32                                        TransportMaximumPayload;
 MANAGEABILITY_TRANSPORT_HARDWARE_INFORMATION  mHardwareInformation;
 
 /**
@@ -92,19 +92,31 @@ DxeIpmiEntry (
   MANAGEABILITY_TRANSPORT_CAPABILITY         TransportCapability;
   MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS  TransportAdditionalStatus;
 
-  GetTransportCapability (&TransportCapability);
-
   Status = HelperAcquireManageabilityTransport (
              &gManageabilityProtocolIpmiGuid,
              &mTransportToken
              );
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Failed to acquire transport interface for IPMI protocol - %r\n", __FUNCTION__, Status));
+    DEBUG ((DEBUG_ERROR, "%a: Failed to acquire transport interface for IPMI protocol - %r\n", __func__, Status));
     return Status;
   }
 
+  Status = GetTransportCapability (mTransportToken, &TransportCapability);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: Failed to GetTransportCapability().\n", __func__));
+    return Status;
+  }
+
+  TransportMaximumPayload = MANAGEABILITY_TRANSPORT_PAYLOAD_SIZE_FROM_CAPABILITY (TransportCapability);
+  if (TransportMaximumPayload == (1 << MANAGEABILITY_TRANSPORT_CAPABILITY_MAXIMUM_PAYLOAD_NOT_AVAILABLE)) {
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "%a: Transport interface maximum payload is undefined.\n", __func__));
+  } else {
+    TransportMaximumPayload -= 1;
+    DEBUG ((DEBUG_MANAGEABILITY_INFO, "%a: Transport interface for IPMI protocol has maximum payload %x.\n", __func__, TransportMaximumPayload));
+  }
+
   mTransportName = HelperManageabilitySpecName (mTransportToken->Transport->ManageabilityTransportSpecification);
-  DEBUG ((DEBUG_INFO, "%a: IPMI protocol over %s.\n", __FUNCTION__, mTransportName));
+  DEBUG ((DEBUG_MANAGEABILITY_INFO, "%a: IPMI protocol over %s.\n", __func__, mTransportName));
 
   //
   // Setup hardware information according to the transport interface.
@@ -114,7 +126,7 @@ DxeIpmiEntry (
              );
   if (EFI_ERROR (Status)) {
     if (Status == EFI_UNSUPPORTED) {
-      DEBUG ((DEBUG_ERROR, "%a: No hardware information of %s transport interface.\n", __FUNCTION__, mTransportName));
+      DEBUG ((DEBUG_ERROR, "%a: No hardware information of %s transport interface.\n", __func__, mTransportName));
     }
 
     return Status;
@@ -139,7 +151,7 @@ DxeIpmiEntry (
                   (VOID **)&mIpmiProtocol
                   );
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Failed to install IPMI protocol - %r\n", __FUNCTION__, Status));
+    DEBUG ((DEBUG_ERROR, "%a: Failed to install IPMI protocol - %r\n", __func__, Status));
   }
 
   return Status;

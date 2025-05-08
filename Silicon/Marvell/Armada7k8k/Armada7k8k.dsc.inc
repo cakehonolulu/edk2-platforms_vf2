@@ -71,6 +71,7 @@
   UefiUsbLib|MdePkg/Library/UefiUsbLib/UefiUsbLib.inf
   VariableFlashInfoLib|MdeModulePkg/Library/BaseVariableFlashInfoLib/BaseVariableFlashInfoLib.inf
   VariablePolicyHelperLib|MdeModulePkg/Library/VariablePolicyHelperLib/VariablePolicyHelperLib.inf
+  ImagePropertiesRecordLib|MdeModulePkg/Library/ImagePropertiesRecordLib/ImagePropertiesRecordLib.inf
 
   PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
 
@@ -80,12 +81,8 @@
   CacheMaintenanceLib|ArmPkg/Library/ArmCacheMaintenanceLib/ArmCacheMaintenanceLib.inf
   DefaultExceptionHandlerLib|ArmPkg/Library/DefaultExceptionHandlerLib/DefaultExceptionHandlerLib.inf
   CpuExceptionHandlerLib|ArmPkg/Library/ArmExceptionLib/ArmExceptionLib.inf
-  ArmDisassemblerLib|ArmPkg/Library/ArmDisassemblerLib/ArmDisassemblerLib.inf
   DmaLib|EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
-  ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicLib.inf
-  ArmGicArchLib|ArmPkg/Library/ArmGicArchLib/ArmGicArchLib.inf
-  ArmPlatformStackLib|ArmPlatformPkg/Library/ArmPlatformStackLib/ArmPlatformStackLib.inf
-  ArmSmcLib|ArmPkg/Library/ArmSmcLib/ArmSmcLib.inf
+  ArmSmcLib|MdePkg/Library/ArmSmcLib/ArmSmcLib.inf
   TimerLib|ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
   UefiScsiLib|MdePkg/Library/UefiScsiLib/UefiScsiLib.inf
 
@@ -96,7 +93,8 @@
   # Reset and Time libraries
   TimeBaseLib|EmbeddedPkg/Library/TimeBaseLib/TimeBaseLib.inf
   RealTimeClockLib|Silicon/Marvell/Armada7k8k/Library/RealTimeClockLib/RealTimeClockLib.inf
-  ResetSystemLib|ArmPkg/Library/ArmSmcPsciResetSystemLib/ArmSmcPsciResetSystemLib.inf
+  ResetSystemLib|ArmPkg/Library/ArmPsciResetSystemLib/ArmPsciResetSystemLib.inf
+  ArmMonitorLib|ArmPkg/Library/ArmMonitorLib/ArmMonitorLib.inf
 
   # These libraries are used by the dynamic EFI Shell commands
   ShellLib|ShellPkg/Library/UefiShellLib/UefiShellLib.inf
@@ -123,7 +121,6 @@
   FileExplorerLib|MdeModulePkg/Library/FileExplorerLib/FileExplorerLib.inf
   PlatformBootManagerLib|ArmPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
   CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
-  FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
 
   ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
   ArmMmuLib|ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
@@ -135,11 +132,9 @@
 
   PrePiLib|EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
   ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
-  LzmaDecompressLib|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
   MemoryAllocationLib|EmbeddedPkg/Library/PrePiMemoryAllocationLib/PrePiMemoryAllocationLib.inf
   HobLib|EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
   PrePiHobListPointerLib|ArmPlatformPkg/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
-  ArmGicArchLib|ArmPkg/Library/ArmGicArchSecLib/ArmGicArchSecLib.inf
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
 
 [LibraryClasses.common.SEC, LibraryClasses.common.PEIM]
@@ -200,17 +195,6 @@
   DebugLib|MdePkg/Library/DxeRuntimeDebugLibSerialPort/DxeRuntimeDebugLibSerialPort.inf
   VariablePolicyLib|MdeModulePkg/Library/VariablePolicyLib/VariablePolicyLibRuntimeDxe.inf
 
-[LibraryClasses.ARM, LibraryClasses.AARCH64]
-  #
-  # It is not possible to prevent the ARM compiler for generic intrinsic functions.
-  # This library provides the instrinsic functions generate by a given compiler.
-  # [LibraryClasses.ARM] and NULL mean link this library into all ARM images.
-  #
-  NULL|ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
-
-  # Add support for GCC stack protector
-  NULL|MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
-
 [LibraryClasses.ARM]
   ArmSoftFloatLib|ArmPkg/Library/ArmSoftFloatLib/ArmSoftFloatLib.inf
 
@@ -221,10 +205,6 @@
 ################################################################################
 
 [PcdsFeatureFlag.common]
-  # Use the Vector Table location in CpuDxe.
-  # We will not copy the Vector Table at PcdCpuVectorBaseAddress
-  gArmTokenSpaceGuid.PcdRelocateVectorTable|FALSE
-
   gEmbeddedTokenSpaceGuid.PcdPrePiProduceMemoryTypeInformationHob|TRUE
 
   # If TRUE, Graphics Output Protocol will be installed on virtual
@@ -280,7 +260,6 @@
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0xF022F000
 
   # ARM Architectural Timer Support
-  gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|25000000
   gEmbeddedTokenSpaceGuid.PcdMetronomeTickPeriod|1000
 
   # ARM SBSA Watchdog
@@ -373,31 +352,31 @@
   gArmPlatformTokenSpaceGuid.PcdCPUCorePrimaryStackSize|0x10000
 
   # ARM-TF region reservation
-  gMarvellTokenSpaceGuid.PcdArmTFRegionBase|0x4000000
-  gMarvellTokenSpaceGuid.PcdArmTFRegionSize|0x200000
+  gMarvellSiliconTokenSpaceGuid.PcdArmTFRegionBase|0x4000000
+  gMarvellSiliconTokenSpaceGuid.PcdArmTFRegionSize|0x200000
 
   # Additional region reservation (e.g. for PEI stack base)
-  gMarvellTokenSpaceGuid.PcdAuxiliaryReservedRegionBase|0x4200000
-  gMarvellTokenSpaceGuid.PcdAuxiliaryReservedRegionSize|0x200000
+  gMarvellSiliconTokenSpaceGuid.PcdAuxiliaryReservedRegionBase|0x4200000
+  gMarvellSiliconTokenSpaceGuid.PcdAuxiliaryReservedRegionSize|0x200000
 
   # OP-TEE region reservation
-  gMarvellTokenSpaceGuid.PcdOpTeeRegionBase|0x4400000
-  gMarvellTokenSpaceGuid.PcdOpTeeRegionSize|0x1000000
+  gMarvellSiliconTokenSpaceGuid.PcdOpTeeRegionBase|0x4400000
+  gMarvellSiliconTokenSpaceGuid.PcdOpTeeRegionSize|0x1000000
 
   # SMBIOS/DMI
   gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosDocRev|0x0
   gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosEntryPointProvideMethod|0x2
-  gMarvellTokenSpaceGuid.PcdFirmwareVersion|"EDK2 SH 1.1"
+  gMarvellSiliconTokenSpaceGuid.PcdFirmwareVersion|"EDK2 SH 1.1"
 
   # TRNG
-  gMarvellTokenSpaceGuid.PcdEip76TrngBaseAddress|0xF2760000
+  gMarvellSiliconTokenSpaceGuid.PcdEip76TrngBaseAddress|0xF2760000
 
   #
   # Variable store - default values
   #
-  gMarvellTokenSpaceGuid.PcdSpiMemoryBase|0xF9000000
-  gMarvellTokenSpaceGuid.PcdSpiMemoryMapped|TRUE
-  gMarvellTokenSpaceGuid.PcdSpiVariableOffset|0x3C0000
+  gMarvellSiliconTokenSpaceGuid.PcdSpiMemoryBase|0xF9000000
+  gMarvellSiliconTokenSpaceGuid.PcdSpiMemoryMapped|TRUE
+  gMarvellSiliconTokenSpaceGuid.PcdSpiVariableOffset|0x3C0000
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize|0x00010000
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize|0x00010000
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize|0x00010000
@@ -417,7 +396,7 @@
 [Components.common]
 
   # PEI Phase modules
-  ArmPlatformPkg/PrePeiCore/PrePeiCoreUniCore.inf
+  ArmPlatformPkg/Sec/Sec.inf
   MdeModulePkg/Core/Pei/PeiMain.inf
   MdeModulePkg/Universal/PCD/Pei/Pcd.inf {
     <LibraryClasses>
@@ -448,7 +427,7 @@
 
   # Architectural Protocols DXE
   ArmPkg/Drivers/CpuDxe/CpuDxe.inf
-  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
+  ArmPkg/Drivers/ArmGicDxe/ArmGicV2Dxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
   MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
 
@@ -492,7 +471,7 @@
   # SATA
   MdeModulePkg/Bus/Ata/AtaAtapiPassThru/AtaAtapiPassThru.inf
   MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
-  OvmfPkg/SataControllerDxe/SataControllerDxe.inf
+  MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
 
   # USB
   MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf

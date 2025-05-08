@@ -3,6 +3,7 @@
     IPMI Manageability Protocol common header file.
 
   Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.<BR>
+  Copyright (c) 2024, Ampere Computing LLC. All rights reserved.<BR>
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
@@ -20,6 +21,19 @@
 #define IPMI_KCS_REG_DATA_OUT  IPMI_KCS_BASE_ADDRESS + IPMI_KCS_DATA_OUT_REGISTER_OFFSET
 #define IPMI_KCS_REG_COMMAND   IPMI_KCS_BASE_ADDRESS + IPMI_KCS_COMMAND_REGISTER_OFFSET
 #define IPMI_KCS_REG_STATUS    IPMI_KCS_BASE_ADDRESS + IPMI_KCS_STATUS_REGISTER_OFFSET
+
+///
+/// IPMI SSIF hardware information.
+///
+#define IPMI_SSIF_BMC_SLAVE_ADDRESS FixedPcdGet8 (PcdIpmiSsifSmbusSlaveAddr)
+
+///
+/// IPMI Serial hardware information.
+///
+#define IPMI_SERIAL_REQUESTER_ADDRESS  FixedPcdGet8 (PcdIpmiSerialRequesterAddress)
+#define IPMI_SERIAL_RESPONDER_ADDRESS  FixedPcdGet8 (PcdIpmiSerialResponderAddress)
+#define IPMI_SERIAL_REQUESTER_LUN      FixedPcdGet8 (PcdIpmiSerialRequesterLun)
+#define IPMI_SERIAL_RESPONDER_LUN      FixedPcdGet8 (PcdIpmiSerialResponderLun)
 
 /**
   This functions setup the IPMI transport hardware information according
@@ -44,21 +58,23 @@ SetupIpmiTransportHardwareInformation (
   This functions setup the final header/body/trailer packets for
   the acquired transport interface.
 
-  @param[in]         TransportToken  The transport interface.
-  @param[in]         NetFunction     IPMI function.
-  @param[in]         Command         IPMI command.
-  @param[out]        PacketHeader    The pointer to receive header of request.
-  @param[in, out]    PacketBody      The request body.
-                                     When IN, it is the caller's request body.
-                                     When OUT and NULL, the request body is not
-                                     changed.
-                                     Whee out and non-NULL, the request body is
-                                     changed to comfort the transport interface.
-  @param[in, out]    PacketBodySize  The request body size.
-                                     When IN and non-zero, it is the new data
-                                     length of request body.
-                                     When IN and zero, the request body is unchanged.
-  @param[out]        PacketTrailer   The pointer to receive trailer of request.
+  @param[in]         TransportToken     The transport interface.
+  @param[in]         NetFunction        IPMI function.
+  @param[in]         Command            IPMI command.
+  @param[out]        PacketHeader       The pointer to receive header of request.
+  @param[out]        PacketHeaderSize   Pinter to receive packet header size in byte.
+  @param[in, out]    PacketBody         The request body.
+                                        When IN, it is the caller's request body.
+                                        When OUT and NULL, the request body is not
+                                        changed.
+                                        Whee out and non-NULL, the request body is
+                                        changed to comfort the transport interface.
+  @param[in, out]    PacketBodySize     The request body size.
+                                        When IN and non-zero, it is the new data
+                                        length of request body.
+                                        When IN and zero, the request body is unchanged.
+  @param[out]        PacketTrailer      The pointer to receive trailer of request.
+  @param[out]        PacketTrailerSize  Pinter to receive packet trailer size in byte.
 
   @retval EFI_SUCCESS            Request packet is returned.
   @retval EFI_UNSUPPORTED        Request packet is not returned because
@@ -70,9 +86,11 @@ SetupIpmiRequestTransportPacket (
   IN   UINT8                            NetFunction,
   IN   UINT8                            Command,
   OUT  MANAGEABILITY_TRANSPORT_HEADER   *PacketHeader OPTIONAL,
+  OUT  UINT16                           *PacketHeaderSize,
   IN OUT UINT8                          **PacketBody OPTIONAL,
   IN OUT UINT32                         *PacketBodySize OPTIONAL,
-  OUT  MANAGEABILITY_TRANSPORT_TRAILER  *PacketTrailer OPTIONAL
+  OUT  MANAGEABILITY_TRANSPORT_TRAILER  *PacketTrailer OPTIONAL,
+  OUT  UINT16                           *PacketTrailerSize
   );
 
 /**

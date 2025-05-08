@@ -97,7 +97,11 @@ Create a directory $WORKSPACE that would hold source code of the components.
   cd $WORKSPACE
   build -b RELEASE -a AARCH64 -t GCC5 -p edk2-platforms/Platform/Qemu/SbsaQemu/SbsaQemu.dsc
   ```
-  Copy SBSA_FLASH0.fd and SBSA_FLASH0.fd to top $WORKSPACE directory.
+  An RME aware SBSA system can be compiled by adding `-D ENABLE_RME` to the
+  command line above.  In that case `bl1.bin` and `fip.bin` also have to be RME
+  aware.  Please refer to TF-A instructions to generate RME enabled binaries.
+
+  Copy SBSA_FLASH0.fd and SBSA_FLASH1.fd to top $WORKSPACE directory.
   Then extend the file size to match the machine flash size.
   ```
   cp Build/SbsaQemu/RELEASE_GCC5/FV/SBSA_FLASH[01].fd .
@@ -113,9 +117,9 @@ Create a directory $WORKSPACE that would hold source code of the components.
   ```
   $INSTALL_PATH/qemu-system-aarch64 -m 1024 -M sbsa-ref -pflash SBSA_FLASH0.fd -pflash SBSA_FLASH1.fd -serial stdio
   ```
-  You can add XHCI controller with keyboard and mouse by:
+  You can add keyboard and mouse by:
   ```
-  -device qemu-xhci -device usb-mouse -device usb-kbd
+  -device usb-mouse -device usb-kbd
   ```
   You can add the hard drive to platform AHCI controller by `hda` parameter:
   ```

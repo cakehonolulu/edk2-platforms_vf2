@@ -58,12 +58,6 @@
   UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
   UefiRuntimeLib|MdePkg/Library/UefiRuntimeLib/UefiRuntimeLib.inf
 
-[LibraryClasses.AARCH64, LibraryClasses.ARM]
-  NULL|ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
-
-[LibraryClasses.ARM]
-  NULL|MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
-
 ################################################################################
 #
 # Pcd Section - list of all EDK II PCD Entries defined by this Platform
@@ -109,6 +103,10 @@
   OptionRomPkg/CirrusLogic5430Dxe/CirrusLogic5430Dxe.inf
   OptionRomPkg/UndiRuntimeDxe/UndiRuntimeDxe.inf
   OptionRomPkg/Bus/Usb/FtdiUsbSerialDxe/FtdiUsbSerialDxe.inf
+  OptionRomPkg/RenesasFirmwarePD720202/RenesasFirmwarePD720202.inf {
+    <LibraryClasses>
+      DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
+  }
 
 [Components.IA32, Components.X64]
   OptionRomPkg/Application/BltLibSample/BltLibSample.inf

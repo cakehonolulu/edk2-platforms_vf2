@@ -17,10 +17,9 @@
   ENTRY_POINT                    = NorFlashInitialise
 
 [Sources.common]
-  NorFlash.c
-  NorFlash.h
   NorFlashBlockIoDxe.c
   NorFlashDxe.c
+  NorFlashCommon.h
   NorFlashFvb.c
 
 [Packages]
@@ -35,6 +34,8 @@
   DxeServicesTableLib
   HobLib
   IoLib
+  NorFlashDeviceLib
+  NorFlashInfoLib
   NorFlashPlatformLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
@@ -65,7 +66,8 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize
 
-  gPlatformArmTokenSpaceGuid.PcdNorFlashCheckBlockLocked
+[FixedPcd]
+  gPlatformArmTokenSpaceGuid.PcdNorFlashRegBaseAddress
 
 [Depex]
   gEfiCpuArchProtocolGuid

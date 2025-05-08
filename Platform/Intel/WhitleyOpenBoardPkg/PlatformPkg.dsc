@@ -59,6 +59,11 @@
 [PcdsFixedAtBuild]
   gUsb3DebugFeaturePkgTokenSpaceGuid.PcdUsb3DebugPortLibInstance|1
 
+#
+# Include AdvancedFeatures
+#
+!include AdvancedFeaturePkg/Include/AdvancedFeatures.dsc
+
   #
   # Platform On/Off features are defined here
   #
@@ -591,6 +596,7 @@
   PciSegmentInfoLib|$(PLATFORM_PKG)/Pci/Library/PciSegmentInfoLibSimple/PciSegmentInfoLibSimple.inf
   PlatformOpromPolicyLib|$(RP_PKG)/Library/PlatformOpromPolicyLibNull/PlatformOpromPolicyLibNull.inf
   CcExitLib|UefiCpuPkg/Library/CcExitLibNull/CcExitLibNull.inf
+  AmdSvsmLib|UefiCpuPkg/Library/AmdSvsmLibNull/AmdSvsmLibNull.inf
   CrcLib|WhitleyOpenBoardPkg/Library/BaseCrcLib/BaseCrcLib.inf
   PlatformSpecificAcpiTableLib|WhitleyOpenBoardPkg/Library/PlatformSpecificAcpiTableLibNull/PlatformSpecificAcpiTableLibNull.inf
   BuildAcpiTablesLib|WhitleyOpenBoardPkg/Library/BuildAcpiTablesLib/DxeBuildAcpiTablesLib.inf

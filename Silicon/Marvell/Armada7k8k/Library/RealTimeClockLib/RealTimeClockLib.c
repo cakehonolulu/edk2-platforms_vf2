@@ -24,7 +24,6 @@
 #include <Library/TimerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeLib.h>
-#include <Protocol/RealTimeClock.h>
 #include "RealTimeClockLib.h"
 
 STATIC EFI_EVENT              mRtcVirtualAddrChangeEvent;
@@ -206,6 +205,31 @@ LibSetWakeupTime (
 }
 
 /**
+  Fixup internal data so that EFI can be call in virtual mode.
+  Call the passed in Child Notify event and convert any pointers in
+  lib to virtual mode.
+
+  @param[in]    Event   The Event that is being processed
+  @param[in]    Context Event Context
+**/
+STATIC
+VOID
+EFIAPI
+VirtualNotifyEvent (
+  IN EFI_EVENT        Event,
+  IN VOID             *Context
+  )
+{
+  //
+  // Only needed if you are going to support the OS calling RTC functions in virtual mode.
+  // You will need to call EfiConvertPointer (). To convert any stored physical addresses
+  // to virtual address. After the OS transistions to calling in virtual mode, all future
+  // runtime calls will be made in virtual mode.
+  //
+  EfiConvertPointer (0x0, (VOID**)&mArmadaRtcBase);
+}
+
+/**
   This is the declaration of an EFI image entry point. This can be the entry point to an application
   written to this specification, an EFI boot service driver, or an EFI runtime driver.
 
@@ -222,7 +246,6 @@ LibRtcInitialize (
   IN EFI_SYSTEM_TABLE                      *SystemTable
   )
 {
-  EFI_HANDLE    Handle;
   EFI_STATUS    Status;
 
   // Obtain RTC device base address
@@ -268,64 +291,24 @@ LibRtcInitialize (
           RTC_READ_OUTPUT_DELAY_DEFAULT
           );
 
-  // Install the protocol
-  Handle = NULL;
-  Status = gBS->InstallMultipleProtocolInterfaces (
-                  &Handle,
-                  &gEfiRealTimeClockArchProtocolGuid,
-                  NULL,
-                  NULL
-                 );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "RTC: Failed to install the protocol\n"));
-    goto ErrSetMem;
-  }
-
   // Register for the virtual address change event
   Status = gBS->CreateEventEx (
                   EVT_NOTIFY_SIGNAL,
                   TPL_NOTIFY,
-                  LibRtcVirtualNotifyEvent,
+                  VirtualNotifyEvent,
                   NULL,
                   &gEfiEventVirtualAddressChangeGuid,
                   &mRtcVirtualAddrChangeEvent
                   );
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "RTC: Failed to register virtual address change event\n"));
-    goto ErrEvent;
+    goto ErrSetMem;
   }
 
   return Status;
 
-ErrEvent:
-  gBS->UninstallProtocolInterface (Handle, &gEfiRealTimeClockArchProtocolGuid, NULL);
 ErrSetMem:
   gDS->RemoveMemorySpace (mArmadaRtcBase, SIZE_4KB);
 
   return Status;
-}
-
-
-/**
-  Fixup internal data so that EFI can be call in virtual mode.
-  Call the passed in Child Notify event and convert any pointers in
-  lib to virtual mode.
-
-  @param[in]    Event   The Event that is being processed
-  @param[in]    Context Event Context
-**/
-VOID
-EFIAPI
-LibRtcVirtualNotifyEvent (
-  IN EFI_EVENT        Event,
-  IN VOID             *Context
-  )
-{
-  //
-  // Only needed if you are going to support the OS calling RTC functions in virtual mode.
-  // You will need to call EfiConvertPointer (). To convert any stored physical addresses
-  // to virtual address. After the OS transistions to calling in virtual mode, all future
-  // runtime calls will be made in virtual mode.
-  //
-  EfiConvertPointer (0x0, (VOID**)&mArmadaRtcBase);
 }

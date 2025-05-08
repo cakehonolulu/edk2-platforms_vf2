@@ -4,7 +4,7 @@
 # Builds BIOS using configuration files and dynamically
 # imported functions from board directory
 #
-# Copyright (c) 2019 - 2020, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2019 - 2023, Intel Corporation. All rights reserved.<BR>
 # Copyright (c) 2021, American Megatrends International LLC.<BR>
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -34,7 +34,7 @@ except ImportError:
     import configparser
 
 
-def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
+def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None, skip_tools=False):
     """Sets the environment variables that shall be used for the build
 
         :param build_config: The build configuration as defined in the JSON
@@ -109,6 +109,8 @@ def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
                                                config["WORKSPACE_SILICON"])
     config["WORKSPACE_FEATURES"] = os.path.join(config["WORKSPACE"],
                                                config["WORKSPACE_FEATURES"])
+    config["WORKSPACE_FEATURES_INTEL"] = os.path.join(config["WORKSPACE"],
+                                            config["WORKSPACE_FEATURES_INTEL"])
     config["WORKSPACE_DRIVERS"] = os.path.join(config["WORKSPACE"],
                                                config["WORKSPACE_DRIVERS"])
     config["WORKSPACE_PLATFORM_BIN"] = \
@@ -123,9 +125,10 @@ def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
     config["PACKAGES_PATH"] += os.pathsep + config["WORKSPACE_SILICON"]
     config["PACKAGES_PATH"] += os.pathsep + config["WORKSPACE_SILICON_BIN"]
     config["PACKAGES_PATH"] += os.pathsep + config["WORKSPACE_FEATURES"]
-    # add all feature domains in WORKSPACE_FEATURES to package path
-    for filename in os.listdir(config["WORKSPACE_FEATURES"]):
-        filepath = os.path.join(config["WORKSPACE_FEATURES"], filename)
+    config["PACKAGES_PATH"] += os.pathsep + config["WORKSPACE_FEATURES_INTEL"]
+    # add all feature domains in WORKSPACE_FEATURES_INTEL to package path
+    for filename in os.listdir(config["WORKSPACE_FEATURES_INTEL"]):
+        filepath = os.path.join(config["WORKSPACE_FEATURES_INTEL"], filename)
         # feature domains folder does not contain dec file
         if os.path.isdir(filepath) and \
           not glob.glob(os.path.join(filepath, "*.dec")):
@@ -195,6 +198,27 @@ def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
         if return_code == 0 and result is not None and isinstance(result,
                                                                   dict):
             config.update(result)
+    else:
+        # UNIX environment variable setup
+        if os.environ.get("PYTHON_COMMAND") is not None:
+            config["PYTHON_COMMAND"] = os.environ.get("PYTHON_COMMAND")
+        else:
+            config["PYTHON_COMMAND"] = sys.executable
+
+        # Add BaseTools shell wrappers to the PATH
+        command = [sys.executable, "-c", "import edk2basetools"]
+        _, _, result, return_code = execute_script(command,
+                                                   config,
+                                                   enable_std_pipe=True,
+                                                   shell=False)
+        if return_code == 0:
+            config["PATH"] = os.path.join(config["BASE_TOOLS_PATH"],
+                                        "BinPipWrappers", "PosixLike") + \
+                                            os.pathsep + config["PATH"]
+        else:
+            config["PATH"] = os.path.join(config["BASE_TOOLS_PATH"],
+                                        "BinWrappers", "PosixLike") + \
+                                            os.pathsep + config["PATH"]
 
     # nmake BaseTools source
     # and enable BaseTools source build
@@ -205,9 +229,25 @@ def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
         shell = False
         command = ["make", "-C", os.path.join(config["BASE_TOOLS_PATH"])]
 
-    _, _, result, return_code = execute_script(command, config, shell=shell)
-    if return_code != 0:
-        build_failed(config)
+    if not skip_tools:
+        _, _, result, return_code = execute_script(command, config, shell=shell)
+        if return_code != 0:
+            #
+            # If the BaseTools build fails, then run a clean build and retry
+            #
+            clean_command = ["nmake", "-f",
+                            os.path.join(config["BASE_TOOLS_PATH"], "Makefile"),
+                            "clean"]
+            if os.name == "posix":
+                clean_command = ["make", "-C",
+                                os.path.join(config["BASE_TOOLS_PATH"]), "clean"]
+            _, _, result, return_code = execute_script(clean_command, config,
+                                                    shell=shell)
+            if return_code != 0:
+                build_failed(config)
+            _, _, result, return_code = execute_script(command, config, shell=shell)
+            if return_code != 0:
+                build_failed(config)
 
     #
     # build platform silicon tools
@@ -341,8 +381,7 @@ def build(config):
             if re.search(pattern, item):
                 os.remove(os.path.join(file_dir, item))
 
-        command = [os.path.join(config['PYTHON_HOME'], "python"),
-                   os.path.join(config['WORKSPACE_PLATFORM'],
+        command = [sys.executable, os.path.join(config['WORKSPACE_PLATFORM'],
                                 config['PLATFORM_PACKAGE'],
                                 'Tools', 'Fsp',
                                 'RebaseFspBinBaseAddress.py'),
@@ -412,6 +451,9 @@ def build(config):
     if config.get("VERBOSE", "FALSE") == "TRUE":
         command.append("--verbose")
 
+    if config.get("VERY_VERBOSE", "FALSE") == "TRUE":
+        command.append("--debug=1")
+
     if config.get("MAX_SOCKET") is not None:
         command.append("-D")
         command.append("MAX_SOCKET=" + config["MAX_SOCKET"])
@@ -420,6 +462,10 @@ def build(config):
         #Override PCD to enable API mode FSP wrapper.
         command.append("--pcd")
         command.append("gIntelFsp2WrapperTokenSpaceGuid.PcdFspModeSelection=1")
+
+    if config.get("PERFORMANCE_BUILD", "FALSE") == "TRUE":
+        command.append("--pcd")
+        command.append("gMinPlatformPkgTokenSpaceGuid.PcdPerformanceEnable=True")
 
     shell = True
     if os.name == "posix":
@@ -882,9 +928,15 @@ def get_config():
         :returns: The config defined in the the Build.cfg file
         :rtype: Dictionary
     """
+    path = 'build.cfg'
+    if not os.path.isfile(path):
+        path = os.path.dirname(__file__)
+        path = os.path.join(path, 'build.cfg')
+        if not os.path.isfile(path):
+            raise IOError("Config file {} not found".format())
     config_file = configparser.RawConfigParser()
     config_file.optionxform = str
-    config_file.read('build.cfg')
+    config_file.read(path)
     config_dictionary = {}
     for section in config_file.sections():
         dictionary = dict(config_file.items(section))
@@ -907,6 +959,11 @@ def get_platform_config(platform_name, config_data):
 
     platform_data = config_data.get("PLATFORMS")
     path = platform_data.get(platform_name)
+    if not os.path.isfile(path):
+        path = os.path.dirname(__file__)
+        path = os.path.join(path, platform_data.get(platform_name))
+        if not os.path.isfile(path):
+            raise IOError("Config file {} not found".format())
     config_file = configparser.RawConfigParser()
     config_file.optionxform = str
     config_file.read(path)
@@ -930,6 +987,12 @@ def get_cmd_config_arguments(arguments):
 
     if arguments.performance is True:
         result["PERFORMANCE_BUILD"] = "TRUE"
+
+    if arguments.verbose is not None and arguments.verbose > 0:
+        result["VERBOSE"] = "TRUE"
+
+    if arguments.verbose is not None and arguments.verbose > 1:
+        result["VERY_VERBOSE"] = "TRUE"
 
     if arguments.fsp is True:
         result["FSP_WRAPPER_BUILD"] = "TRUE"
@@ -1003,11 +1066,17 @@ def get_cmd_arguments(build_config):
     parser.add_argument('--list', '-l', action=PrintPlatforms,
                         help='lists available platforms', nargs=0)
 
+    parser.add_argument('--skiptools', '-s', dest='skip_tools',
+                        help='skips rebuilding base tools', action='store_true')
+
     parser.add_argument('--cleanall', dest='clean_all',
                         help='cleans all', action='store_true')
 
     parser.add_argument('--clean', dest='clean',
                         help='cleans specific platform', action='store_true')
+
+    parser.add_argument('--verbose', '-v', dest='verbose',
+                        help='Verbose build log output, specify -vv for very verbose.', action='count')
 
     parser.add_argument("--capsule", help="capsule build enabled",
                         action='store_true', dest="capsule")
@@ -1087,7 +1156,8 @@ def main():
     config = pre_build(config,
                        build_type=arguments.target,
                        toolchain=arguments.toolchain,
-                       silent=arguments.silent)
+                       silent=arguments.silent,
+                       skip_tools=arguments.skip_tools)
 
     # build selected platform
     config = build(config)

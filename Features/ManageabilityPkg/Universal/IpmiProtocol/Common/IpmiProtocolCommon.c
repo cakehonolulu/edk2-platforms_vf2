@@ -3,6 +3,7 @@
   IPMI Manageability Protocol common file.
 
   Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.<BR>
+  Copyright (c) 2024, Ampere Computing LLC. All rights reserved.<BR>
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -27,7 +28,8 @@
                                  once it doesn't need it.
   @retval EFI_UNSUPPORTED        No hardware information for the specification specified
                                  in the transport token.
-  #retval EFI_OUT_OF_RESOURCES   Not enough memory for MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO.
+  @retval EFI_OUT_OF_RESOURCES   Not enough memory for MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO
+                                 or MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO.
 **/
 EFI_STATUS
 SetupIpmiTransportHardwareInformation (
@@ -35,16 +37,18 @@ SetupIpmiTransportHardwareInformation (
   OUT  MANAGEABILITY_TRANSPORT_HARDWARE_INFORMATION  *HardwareInformation
   )
 {
-  MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO  *KcsHardwareInfo;
-
-  KcsHardwareInfo = AllocatePool (sizeof (MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO));
-  if (KcsHardwareInfo == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Not enough memory for MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO.\n", __FUNCTION__));
-    return EFI_OUT_OF_RESOURCES;
-  }
+  MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO     *KcsHardwareInfo;
+  MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO    *SsifHardwareInfo;
+  MANAGEABILITY_TRANSPORT_SERIAL_HARDWARE_INFO  *SerialHardwareInfo;
 
   if (CompareGuid (&gManageabilityTransportKcsGuid, TransportToken->Transport->ManageabilityTransportSpecification)) {
     // This is KCS transport interface.
+    KcsHardwareInfo = AllocatePool (sizeof (MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO));
+    if (KcsHardwareInfo == NULL) {
+      DEBUG ((DEBUG_ERROR, "%a: Not enough memory for MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO.\n", __func__));
+      return EFI_OUT_OF_RESOURCES;
+    }
+
     KcsHardwareInfo->MemoryMap                    = MANAGEABILITY_TRANSPORT_KCS_IO_MAP_IO;
     KcsHardwareInfo->IoBaseAddress.IoAddress16    = IPMI_KCS_BASE_ADDRESS;
     KcsHardwareInfo->IoDataInAddress.IoAddress16  = IPMI_KCS_REG_DATA_IN;
@@ -53,8 +57,33 @@ SetupIpmiTransportHardwareInformation (
     KcsHardwareInfo->IoStatusAddress.IoAddress16  = IPMI_KCS_REG_STATUS;
     HardwareInformation->Kcs                      = KcsHardwareInfo;
     return EFI_SUCCESS;
+  } else if (CompareGuid (&gManageabilityTransportSmbusI2cGuid, TransportToken->Transport->ManageabilityTransportSpecification)) {
+    // This is SSIF transport interface.
+    SsifHardwareInfo = AllocatePool (sizeof (MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO));
+    if (SsifHardwareInfo == NULL) {
+      DEBUG ((DEBUG_ERROR, "%a: Not enough memory for MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO.\n", __func__));
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    SsifHardwareInfo->BmcSlaveAddress = IPMI_SSIF_BMC_SLAVE_ADDRESS;
+    HardwareInformation->Ssif         = SsifHardwareInfo;
+    return EFI_SUCCESS;
+  } else if (CompareGuid (&gManageabilityTransportSerialGuid, TransportToken->Transport->ManageabilityTransportSpecification)) {
+    // This is Serial transport interface.
+    SerialHardwareInfo = AllocatePool (sizeof (MANAGEABILITY_TRANSPORT_SERIAL_HARDWARE_INFO));
+    if (SerialHardwareInfo == NULL) {
+      DEBUG ((DEBUG_ERROR, "%a: Not enough memory for MANAGEABILITY_TRANSPORT_SERIAL_HARDWARE_INFO.\n", __func__));
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    SerialHardwareInfo->IpmiRequesterAddress = IPMI_SERIAL_REQUESTER_ADDRESS;
+    SerialHardwareInfo->IpmiResponderAddress = IPMI_SERIAL_RESPONDER_ADDRESS;
+    SerialHardwareInfo->IpmiRequesterLUN     = IPMI_SERIAL_REQUESTER_LUN;
+    SerialHardwareInfo->IpmiResponderLUN     = IPMI_SERIAL_RESPONDER_LUN;
+    HardwareInformation->Serial              = SerialHardwareInfo;
+    return EFI_SUCCESS;
   } else {
-    DEBUG ((DEBUG_ERROR, "%a: No implementation of setting hardware information.", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: No implementation of setting hardware information.", __func__));
     ASSERT (FALSE);
   }
 
@@ -65,21 +94,23 @@ SetupIpmiTransportHardwareInformation (
   This functions setup the final header/body/trailer packets for
   the acquired transport interface.
 
-  @param[in]         TransportToken  The transport interface.
-  @param[in]         NetFunction     IPMI function.
-  @param[in]         Command         IPMI command.
-  @param[out]        PacketHeader    The pointer to receive header of request.
-  @param[in, out]    PacketBody      The request body.
-                                     When IN, it is the caller's request body.
-                                     When OUT and NULL, the request body is not
-                                     changed.
-                                     When OUT and non-NULL, the request body is
-                                     changed to conform the transport interface.
-  @param[in, out]    PacketBodySize  The request body size.
-                                     When OUT and non-zero, it is the new data
-                                     length of request body.
-                                     When OUT and zero, the request body is unchanged.
-  @param[out]        PacketTrailer   The pointer to receive trailer of request.
+  @param[in]         TransportToken     The transport interface.
+  @param[in]         NetFunction        IPMI function.
+  @param[in]         Command            IPMI command.
+  @param[out]        PacketHeader       The pointer to receive header of request.
+  @param[out]        PacketHeaderSize   Pinter to receive packet header size in byte.
+  @param[in, out]    PacketBody         The request body.
+                                        When IN, it is the caller's request body.
+                                        When OUT and NULL, the request body is not
+                                        changed.
+                                        Whee out and non-NULL, the request body is
+                                        changed to comfort the transport interface.
+  @param[in, out]    PacketBodySize     The request body size.
+                                        When IN and non-zero, it is the new data
+                                        length of request body.
+                                        When IN and zero, the request body is unchanged.
+  @param[out]        PacketTrailer      The pointer to receive trailer of request.
+  @param[out]        PacketTrailerSize  Pinter to receive packet trailer size in byte.
 
   @retval EFI_SUCCESS            Request packet is returned.
   @retval EFI_UNSUPPORTED        Request packet is not returned because
@@ -91,39 +122,50 @@ SetupIpmiRequestTransportPacket (
   IN   UINT8                            NetFunction,
   IN   UINT8                            Command,
   OUT  MANAGEABILITY_TRANSPORT_HEADER   *PacketHeader OPTIONAL,
+  OUT  UINT16                           *PacketHeaderSize,
   IN OUT UINT8                          **PacketBody OPTIONAL,
   IN OUT UINT32                         *PacketBodySize OPTIONAL,
-  OUT  MANAGEABILITY_TRANSPORT_TRAILER  *PacketTrailer OPTIONAL
+  OUT  MANAGEABILITY_TRANSPORT_TRAILER  *PacketTrailer OPTIONAL,
+  OUT  UINT16                           *PacketTrailerSize
   )
 {
   MANAGEABILITY_IPMI_TRANSPORT_HEADER  *IpmiHeader;
 
-  if (CompareGuid (&gManageabilityTransportKcsGuid, TransportToken->Transport->ManageabilityTransportSpecification)) {
-    // This is KCS transport interface.
+  if (  CompareGuid (&gManageabilityTransportKcsGuid, TransportToken->Transport->ManageabilityTransportSpecification)
+     || CompareGuid (&gManageabilityTransportSmbusI2cGuid, TransportToken->Transport->ManageabilityTransportSpecification)
+     || CompareGuid (&gManageabilityTransportSerialGuid, TransportToken->Transport->ManageabilityTransportSpecification))
+  {
     IpmiHeader = AllocateZeroPool (sizeof (MANAGEABILITY_IPMI_TRANSPORT_HEADER));
     if (IpmiHeader == NULL) {
       return EFI_OUT_OF_RESOURCES;
     }
 
+    *PacketHeaderSize   = 0;
+    *PacketTrailerSize  = 0;
     IpmiHeader->Command = Command;
-    IpmiHeader->Lun     = 0;
+    IpmiHeader->Lun     = MANAGEABILITY_IPMI_BMC_LUN;
     IpmiHeader->NetFn   = NetFunction;
     if (PacketHeader != NULL) {
-      *PacketHeader = (MANAGEABILITY_TRANSPORT_HEADER *)IpmiHeader;
+      *PacketHeader     = (MANAGEABILITY_TRANSPORT_HEADER *)IpmiHeader;
+      *PacketHeaderSize = sizeof (MANAGEABILITY_IPMI_TRANSPORT_HEADER);
     }
+
     if (PacketTrailer != NULL) {
       *PacketTrailer = NULL;
     }
+
     if (PacketBody != NULL) {
       *PacketBody = NULL;
     }
+
     if (PacketBodySize != NULL) {
       *PacketBodySize = 0;
     }
   } else {
-    DEBUG ((DEBUG_ERROR, "%a: No implementation of building up packet.", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: No implementation of building up packet.", __func__));
     ASSERT (FALSE);
   }
+
   return EFI_SUCCESS;
 }
 
@@ -164,9 +206,11 @@ CommonIpmiSubmitCommand (
   MANAGEABILITY_TRANSPORT_HEADER             IpmiTransportHeader;
   MANAGEABILITY_TRANSPORT_TRAILER            IpmiTransportTrailer;
   MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS  TransportAdditionalStatus;
+  UINT16                                     HeaderSize;
+  UINT16                                     TrailerSize;
 
   if (TransportToken == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: No transport toke for IPMI\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: No transport toke for IPMI\n", __func__));
     return EFI_UNSUPPORTED;
   }
 
@@ -175,12 +219,12 @@ CommonIpmiSubmitCommand (
                                                              &TransportAdditionalStatus
                                                              );
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Transport for IPMI has problem - (%r)\n", __FUNCTION__, Status));
+    DEBUG ((DEBUG_ERROR, "%a: Transport for IPMI has problem - (%r)\n", __func__, Status));
     return Status;
   }
 
-  ThisRequestData       = RequestData;
-  ThisRequestDataSize   = RequestDataSize;
+  ThisRequestData      = RequestData;
+  ThisRequestDataSize  = RequestDataSize;
   IpmiTransportHeader  = NULL;
   IpmiTransportTrailer = NULL;
   Status               = SetupIpmiRequestTransportPacket (
@@ -188,22 +232,25 @@ CommonIpmiSubmitCommand (
                            NetFunction,
                            Command,
                            &IpmiTransportHeader,
+                           &HeaderSize,
                            &ThisRequestData,
                            &ThisRequestDataSize,
-                           &IpmiTransportTrailer
+                           &IpmiTransportTrailer,
+                           &TrailerSize
                            );
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Fail to build packets - (%r)\n", __FUNCTION__, Status));
+    DEBUG ((DEBUG_ERROR, "%a: Fail to build packets - (%r)\n", __func__, Status));
     return Status;
   }
 
   ZeroMem (&TransferToken, sizeof (MANAGEABILITY_TRANSFER_TOKEN));
-  TransferToken.TransmitHeader  = IpmiTransportHeader;
-  TransferToken.TransmitTrailer = IpmiTransportTrailer;
+  TransferToken.TransmitHeader      = IpmiTransportHeader;
+  TransferToken.TransmitHeaderSize  = HeaderSize;
+  TransferToken.TransmitTrailer     = IpmiTransportTrailer;
+  TransferToken.TransmitTrailerSize = TrailerSize;
 
   // Transmit packet.
   if ((ThisRequestData == NULL) || (ThisRequestDataSize == 0)) {
-
     // Transmit parameter were not changed by SetupIpmiRequestTransportPacket().
     TransferToken.TransmitPackage.TransmitPayload    = RequestData;
     TransferToken.TransmitPackage.TransmitSizeInByte = RequestDataSize;
@@ -240,12 +287,13 @@ CommonIpmiSubmitCommand (
   Status                    = TransferToken.TransferStatus;
   TransportAdditionalStatus = TransferToken.TransportAdditionalStatus;
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: Failed to send IPMI command.\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Failed to send IPMI command.\n", __func__));
     return Status;
   }
 
   if (ResponseDataSize != NULL) {
     *ResponseDataSize = TransferToken.ReceivePackage.ReceiveSizeInByte;
   }
+
   return Status;
 }

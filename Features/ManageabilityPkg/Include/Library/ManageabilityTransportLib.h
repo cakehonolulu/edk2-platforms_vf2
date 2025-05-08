@@ -3,6 +3,7 @@
   This file defines the manageability transport interface library and functions.
 
   Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.<BR>
+  Copyright (c) 2024, Ampere Computing LLC. All rights reserved.<BR>
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
@@ -13,6 +14,9 @@
 #define MANAGEABILITY_TRANSPORT_TOKEN_VERSION_MINOR  0
 #define MANAGEABILITY_TRANSPORT_TOKEN_VERSION        ((MANAGEABILITY_TRANSPORT_TOKEN_VERSION_MAJOR << 8) |\
                                                 MANAGEABILITY_TRANSPORT_TOKEN_VERSION_MINOR)
+
+#define MANAGEABILITY_TRANSPORT_PAYLOAD_SIZE_FROM_CAPABILITY(a)  (1 << ((a & MANAGEABILITY_TRANSPORT_CAPABILITY_MAXIMUM_PAYLOAD_MASK) >>\
+           MANAGEABILITY_TRANSPORT_CAPABILITY_MAXIMUM_PAYLOAD_BIT_POSITION))
 
 typedef struct  _MANAGEABILITY_TRANSPORT_FUNCTION_V1_0  MANAGEABILITY_TRANSPORT_FUNCTION_V1_0;
 typedef struct  _MANAGEABILITY_TRANSPORT                MANAGEABILITY_TRANSPORT;
@@ -49,27 +53,56 @@ typedef struct {
 #define MANAGEABILITY_TRANSPORT_KCS_IO_MAP_IO      FALSE
 #define MANAGEABILITY_TRANSPORT_KCS_MEMORY_MAP_IO  TRUE
 
+///
+/// Manageability SSIF protocol interface hardware information
+///
+typedef struct {
+  UINT32    BmcSlaveAddress;
+} MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO;
+
+///
+/// Manageability Serial protocol interface hardware information.
+///
+typedef struct {
+  UINT8    IpmiRequesterAddress;
+  UINT8    IpmiResponderAddress;
+  UINT8    IpmiRequesterLUN;
+  UINT8    IpmiResponderLUN;
+} MANAGEABILITY_TRANSPORT_SERIAL_HARDWARE_INFO;
+
 typedef union {
-  VOID                                         *Pointer;
-  MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO    *Kcs;
+  VOID                                            *Pointer;
+  MANAGEABILITY_TRANSPORT_KCS_HARDWARE_INFO       *Kcs;
+  MANAGEABILITY_TRANSPORT_SSIF_HARDWARE_INFO      *Ssif;
+  MANAGEABILITY_TRANSPORT_SERIAL_HARDWARE_INFO    *Serial;
 } MANAGEABILITY_TRANSPORT_HARDWARE_INFORMATION;
 
 ///
 /// Additional transport interface status.
 ///
 typedef UINT32 MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS;
-#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_NO_ERRORS      0x00000000
-#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_ERROR          0x00000001
-#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_BUSY_IN_READ   0x00000002
-#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_BUSY_IN_WRITE  0x00000004
-#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_NOT_AVAILABLE  0xffffffff
+#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_NO_ERRORS        0x00000000
+#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_ERROR            0x00000001
+#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_BUSY_IN_READ     0x00000002
+#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_BUSY_IN_WRITE    0x00000004
+#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_INVALID_COMMAND  0x00000008
+#define MANAGEABILITY_TRANSPORT_ADDITIONAL_STATUS_NOT_AVAILABLE    0xffffffff
 
 ///
 /// Additional transport interface features.
 ///
 typedef UINT32 MANAGEABILITY_TRANSPORT_CAPABILITY;
+/// Bit 0
 #define MANAGEABILITY_TRANSPORT_CAPABILITY_MULTIPLE_TRANSFER_TOKENS  0x00000001
-#define MANAGEABILITY_TRANSPORT_CAPABILITY_ASYNCHRONOUS_TRANSFER     0x00000002
+/// Bit 1
+#define MANAGEABILITY_TRANSPORT_CAPABILITY_ASYNCHRONOUS_TRANSFER  0x00000002
+/// Bit 2   - Reserved
+/// Bit 7:3 - Transport interface maximum payload size, which is (2 ^ bit[7:3] - 1)
+///           bit[7:3] means no maximum payload.
+#define MANAGEABILITY_TRANSPORT_CAPABILITY_MAXIMUM_PAYLOAD_MASK           0x000000f8
+#define MANAGEABILITY_TRANSPORT_CAPABILITY_MAXIMUM_PAYLOAD_BIT_POSITION   3
+#define MANAGEABILITY_TRANSPORT_CAPABILITY_MAXIMUM_PAYLOAD_NOT_AVAILABLE  0x00
+/// Bit 8:31 - Reserved
 
 ///
 /// Definitions of Manageability transport interface functions.
@@ -156,10 +189,12 @@ struct _MANAGEABILITY_TRANSFER_TOKEN {
                                                                           ///< which is sent discretely of payload.
                                                                           ///< This field can be NULL if the transport
                                                                           ///< doesn't require this.
+  UINT16                                       TransmitHeaderSize;        ///< Transmit header size in byte.
   MANAGEABILITY_TRANSPORT_TRAILER              TransmitTrailer;           ///< This is the transport-specific trailer
                                                                           ///< which is sent discretely of payload.
                                                                           ///< This field can be NULL if the transport
                                                                           ///< doesn't require this.
+  UINT16                                       TransmitTrailerSize;       ///< Transmit trailer size in byte.
   MANAGEABILITY_TRANSMIT_PACKAGE               TransmitPackage;           ///< The payload sent to transport interface.
   MANAGEABILITY_RECEIVE_PACKAGE                ReceivePackage;            ///< The buffer to receive the response.
   EFI_STATUS                                   TransferStatus;            ///< The EFI Status of the transfer.
@@ -187,15 +222,20 @@ AcquireTransportSession (
   );
 
 /**
-  This function returns the transport capabilities.
+  This function returns the transport capabilities according to
+  the manageability protocol.
 
-  @param [out]  TransportFeature        Pointer to receive transport capabilities.
-                                        See the definitions of
-                                        MANAGEABILITY_TRANSPORT_CAPABILITY.
-
+  @param [in]   TransportToken             Transport token acquired from manageability
+                                           transport library.
+  @param [out]  TransportFeature           Pointer to receive transport capabilities.
+                                           See the definitions of
+                                           MANAGEABILITY_TRANSPORT_CAPABILITY.
+  @retval       EFI_SUCCESS                TransportCapability is returned successfully.
+  @retval       EFI_INVALID_PARAMETER      TransportToken is not a valid token.
 **/
-VOID
+EFI_STATUS
 GetTransportCapability (
+  IN MANAGEABILITY_TRANSPORT_TOKEN        *TransportToken,
   OUT MANAGEABILITY_TRANSPORT_CAPABILITY  *TransportCapability
   );
 

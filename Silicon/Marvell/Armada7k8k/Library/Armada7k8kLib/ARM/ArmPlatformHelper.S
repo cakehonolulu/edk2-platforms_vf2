@@ -10,7 +10,7 @@
 //  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED
 //
 
-#include <AsmMacroIoLib.h>
+#include <AsmMacroLib.h>
 #include <Library/ArmLib.h>
 
 #define CCU_MC_BASE                     0xF0001700
@@ -28,36 +28,4 @@ ASM_FUNC(ArmPlatformPeiBootAction)
   .err  PcdSystemMemoryBase should be 0x0 on this platform!
   .endif
 
-  bx    lr
-
-//UINTN
-//ArmPlatformGetCorePosition (
-//  IN UINTN MpId
-//  );
-// With this function: CorePos = (ClusterId * 2) + CoreId
-ASM_FUNC(ArmPlatformGetCorePosition)
-  and   r1, r0, #ARM_CORE_MASK
-  and   r0, r0, #ARM_CLUSTER_MASK
-  add   r0, r1, r0, LSR #7
-  bx    lr
-
-//UINTN
-//ArmPlatformGetPrimaryCoreMpId (
-//  VOID
-//  );
-ASM_FUNC(ArmPlatformGetPrimaryCoreMpId)
-  MOV32 (r0, FixedPcdGet32(PcdArmPrimaryCore))
-  bx    lr
-
-//UINTN
-//ArmPlatformIsPrimaryCore (
-//  IN UINTN MpId
-//  );
-ASM_FUNC(ArmPlatformIsPrimaryCore)
-  MOV32 (r1, FixedPcdGet32(PcdArmPrimaryCoreMask))
-  and   r0, r0, r1
-  MOV32 (r1, FixedPcdGet32(PcdArmPrimaryCore))
-  cmp   r0, r1
-  moveq r0, #1
-  movne r0, #0
   bx    lr

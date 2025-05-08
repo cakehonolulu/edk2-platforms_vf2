@@ -1,6 +1,6 @@
 #/* @file
 #
-#  Copyright (c) 2019, Linaro Limited. All rights reserved.
+#  Copyright (c) 2019-2024, Linaro Limited. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -32,14 +32,13 @@
   ArmLib
   BaseMemoryLib
   DebugLib
-  FdtLib
+  HardwareInfoLib
   MemoryAllocationLib
   PcdLib
 
 [Pcd]
   gArmTokenSpaceGuid.PcdSystemMemoryBase
   gArmTokenSpaceGuid.PcdSystemMemorySize
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdDeviceTreeBaseAddress
 
 [FixedPcd]
   gArmTokenSpaceGuid.PcdFdBaseAddress

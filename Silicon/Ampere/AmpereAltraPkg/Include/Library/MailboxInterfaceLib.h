@@ -6,7 +6,7 @@
   hardware doorbell registers. Each transfer can be up to 12 bytes long, including 4 bytes
   for the message and two 4 bytes for additional data.
 
-  Copyright (c) 2021, Ampere Computing LLC. All rights reserved.<BR>
+  Copyright (c) 2021 - 2024, Ampere Computing LLC. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -15,21 +15,21 @@
 #ifndef MAILBOX_INTERFACE_LIB_H_
 #define MAILBOX_INTERFACE_LIB_H_
 
-#define SMPRO_DB_MAX                     8
-#define PMPRO_DB_MAX                     8
-#define NUMBER_OF_DOORBELLS_PER_SOCKET   (SMPRO_DB_MAX + PMPRO_DB_MAX)
+#define SMPRO_DB_MAX                    8
+#define PMPRO_DB_MAX                    8
+#define NUMBER_OF_DOORBELLS_PER_SOCKET  (SMPRO_DB_MAX + PMPRO_DB_MAX)
 
 //
 // General address offset of Doorbell registers
 //
-#define DB_IN_REG_OFST            0x00000000 // Doorbell In
-#define DB_DIN0_REG_OFST          0x00000004 // Doorbell In Data
-#define DB_DIN1_REG_OFST          0x00000008 // Doorbell In Data
-#define DB_OUT_REG_OFST           0x00000010 // Doorbell Out
-#define DB_DOUT0_REG_OFST         0x00000014 // Doorbell Out Data
-#define DB_DOUT1_REG_OFST         0x00000018 // Doorbell Out Data
-#define DB_STATUS_REG_OFST        0x00000020 // Doorbell Interrupt Status
-#define DB_STATUS_MASK_REG_OFST   0x00000024 // Doorbell Interrupt Status Mask
+#define DB_IN_REG_OFST           0x00000000  // Doorbell In
+#define DB_DIN0_REG_OFST         0x00000004  // Doorbell In Data
+#define DB_DIN1_REG_OFST         0x00000008  // Doorbell In Data
+#define DB_OUT_REG_OFST          0x00000010  // Doorbell Out
+#define DB_DOUT0_REG_OFST        0x00000014  // Doorbell Out Data
+#define DB_DOUT1_REG_OFST        0x00000018  // Doorbell Out Data
+#define DB_STATUS_REG_OFST       0x00000020  // Doorbell Interrupt Status
+#define DB_STATUS_MASK_REG_OFST  0x00000024  // Doorbell Interrupt Status Mask
 
 //
 // List of supported doorbells
@@ -67,8 +67,8 @@ typedef enum {
 // including 4 bytes for message and two 4 bytes for extended data.
 //
 typedef struct {
-  UINT32 Data;
-  UINT32 ExtendedData[2];
+  UINT32    Data;
+  UINT32    ExtendedData[2];
 } MAILBOX_MESSAGE_DATA;
 
 #pragma pack()
@@ -76,9 +76,9 @@ typedef struct {
 //
 // Timeout configuration when waiting for an doorbell interrupt status
 //
-#define MAILBOX_POLL_TIMEOUT_US  10000000
-#define MAILBOX_POLL_INTERVAL_US 1000
-#define MAILBOX_POLL_COUNT       (MAILBOX_POLL_TIMEOUT_US / MAILBOX_POLL_INTERVAL_US)
+#define MAILBOX_POLL_TIMEOUT_US   10000000
+#define MAILBOX_POLL_INTERVAL_US  1000
+#define MAILBOX_POLL_COUNT        (MAILBOX_POLL_TIMEOUT_US / MAILBOX_POLL_INTERVAL_US)
 
 /**
   Get the base address of a doorbell.
@@ -93,8 +93,8 @@ typedef struct {
 UINTN
 EFIAPI
 MailboxGetDoorbellAddress (
-  IN UINT8             Socket,
-  IN DOORBELL_CHANNELS Doorbell
+  IN UINT8              Socket,
+  IN DOORBELL_CHANNELS  Doorbell
   );
 
 /**
@@ -110,8 +110,8 @@ MailboxGetDoorbellAddress (
 UINT32
 EFIAPI
 MailboxGetDoorbellInterruptNumber (
-  IN UINT8             Socket,
-  IN DOORBELL_CHANNELS Doorbell
+  IN UINT8              Socket,
+  IN DOORBELL_CHANNELS  Doorbell
   );
 
 /**
@@ -128,9 +128,9 @@ MailboxGetDoorbellInterruptNumber (
 EFI_STATUS
 EFIAPI
 MailboxRead (
-  IN  UINT8                Socket,
-  IN  DOORBELL_CHANNELS    Doorbell,
-  OUT MAILBOX_MESSAGE_DATA *Message
+  IN  UINT8                 Socket,
+  IN  DOORBELL_CHANNELS     Doorbell,
+  OUT MAILBOX_MESSAGE_DATA  *Message
   );
 
 /**
@@ -147,9 +147,9 @@ MailboxRead (
 EFI_STATUS
 EFIAPI
 MailboxWrite (
-  IN UINT8                Socket,
-  IN DOORBELL_CHANNELS    Doorbell,
-  IN MAILBOX_MESSAGE_DATA *Message
+  IN UINT8                 Socket,
+  IN DOORBELL_CHANNELS     Doorbell,
+  IN MAILBOX_MESSAGE_DATA  *Message
   );
 
 /**
@@ -165,8 +165,25 @@ MailboxWrite (
 EFI_STATUS
 EFIAPI
 MailboxUnmaskInterrupt (
-  IN UINT8  Socket,
-  IN UINT16 Doorbell
+  IN UINT8   Socket,
+  IN UINT16  Doorbell
+  );
+
+/**
+  Setup Doorbell for running at runtime.
+
+  @param[in]  Socket            Active socket index.
+  @param[in]  Doorbell          Doorbell channel.
+
+  @retval EFI_SUCCESS           The operation completed successfully.
+  @retval EFI_INVALID_PARAMETER A parameter is invalid.
+
+**/
+EFI_STATUS
+EFIAPI
+MailboxRuntimeSetup (
+  IN UINT8              Socket,
+  IN DOORBELL_CHANNELS  Doorbell
   );
 
 #endif /* MAILBOX_INTERFACE_LIB_H_ */

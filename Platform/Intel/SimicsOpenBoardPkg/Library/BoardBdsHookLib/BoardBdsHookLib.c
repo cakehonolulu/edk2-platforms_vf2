@@ -273,9 +273,9 @@ RemoveStaleFvFileOptions (
       DevicePathString = ConvertDevicePathToText(BootOptions[Index].FilePath,
                            FALSE, FALSE);
       DEBUG ((
-        EFI_ERROR (Status) ? EFI_D_WARN : DEBUG_VERBOSE,
+        EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_VERBOSE,
         "%a: removing stale Boot#%04x %s: %r\n",
-        __FUNCTION__,
+        __func__,
         (UINT32)BootOptions[Index].OptionNumber,
         DevicePathString == NULL ? L"<unavailable>" : DevicePathString,
         Status
@@ -837,45 +837,35 @@ PlatformInitializeConsole (
   )
 {
   UINTN                              Index;
-  EFI_DEVICE_PATH_PROTOCOL           *VarConout;
-  EFI_DEVICE_PATH_PROTOCOL           *VarConin;
 
   //
-  // Connect RootBridge
+  // Do platform specific PCI Device check and add them to ConOut, ConIn, ErrOut
+  // Note: Why perform the ConIn/ConOut/ErrOut variables update without checking
+  //          whether "ConIn", "ConOut" or "ErrOut" is present in the variable store?
+  //       Because SerialPortTerminalLib.constructor() adds the serial terminal device
+  //          to "ConIn", "ConOut" and "ErrOut" variables always, checking presence of
+  //          the three variables will lead to the following update logic never runs.
   //
-  GetEfiGlobalVariable2 (EFI_CON_OUT_VARIABLE_NAME, (VOID **) &VarConout, NULL);
-  GetEfiGlobalVariable2 (EFI_CON_IN_VARIABLE_NAME, (VOID **) &VarConin, NULL);
-
-  if (VarConout == NULL || VarConin == NULL) {
+  DetectAndPreparePlatformPciDevicePaths (FALSE);
+  DetectAndPreparePlatformPciDevicePaths(TRUE);
+  //
+  // Have chance to connect the platform default console,
+  // the platform default console is the minimue device group
+  // the platform should support
+  //
+  for (Index = 0; PlatformConsole[Index].DevicePath != NULL; ++Index) {
     //
-    // Do platform specific PCI Device check and add them to ConOut, ConIn, ErrOut
+    // Update the console variable with the connect type
     //
-    DetectAndPreparePlatformPciDevicePaths (FALSE);
-    DetectAndPreparePlatformPciDevicePaths(TRUE);
-    //
-    // Have chance to connect the platform default console,
-    // the platform default console is the minimue device group
-    // the platform should support
-    //
-    for (Index = 0; PlatformConsole[Index].DevicePath != NULL; ++Index) {
-      //
-      // Update the console variable with the connect type
-      //
-      if ((PlatformConsole[Index].ConnectType & CONSOLE_IN) == CONSOLE_IN) {
-        EfiBootManagerUpdateConsoleVariable (ConIn, PlatformConsole[Index].DevicePath, NULL);
-      }
-      if ((PlatformConsole[Index].ConnectType & CONSOLE_OUT) == CONSOLE_OUT) {
-        EfiBootManagerUpdateConsoleVariable (ConOut, PlatformConsole[Index].DevicePath, NULL);
-      }
-      if ((PlatformConsole[Index].ConnectType & STD_ERROR) == STD_ERROR) {
-        EfiBootManagerUpdateConsoleVariable (ErrOut, PlatformConsole[Index].DevicePath, NULL);
-      }
+    if ((PlatformConsole[Index].ConnectType & CONSOLE_IN) == CONSOLE_IN) {
+      EfiBootManagerUpdateConsoleVariable (ConIn, PlatformConsole[Index].DevicePath, NULL);
     }
-  } else {
-    //
-    // Only detect VGA device and add them to ConOut
-    //
-    DetectAndPreparePlatformPciDevicePaths (TRUE);
+    if ((PlatformConsole[Index].ConnectType & CONSOLE_OUT) == CONSOLE_OUT) {
+      EfiBootManagerUpdateConsoleVariable (ConOut, PlatformConsole[Index].DevicePath, NULL);
+    }
+    if ((PlatformConsole[Index].ConnectType & STD_ERROR) == STD_ERROR) {
+      EfiBootManagerUpdateConsoleVariable (ErrOut, PlatformConsole[Index].DevicePath, NULL);
+    }
   }
 }
 
@@ -958,7 +948,7 @@ SetPciIntLine (
 //      DEBUG((
 //        DEBUG_ERROR,
 //       "%a: PCI host bridge (00:00.0) should have no interrupts!\n",
-//        __FUNCTION__
+//        __func__
 //        ));
 //      ASSERT (FALSE);
     }
@@ -1007,7 +997,7 @@ SetPciIntLine (
       Status = PciIo->GetLocation (PciIo, &Segment, &Bus, &Device, &Function);
       ASSERT_EFI_ERROR (Status);
 
-      DEBUG ((DEBUG_VERBOSE, "%a: [%02x:%02x.%x] %s -> 0x%02x\n", __FUNCTION__,
+      DEBUG ((DEBUG_VERBOSE, "%a: [%02x:%02x.%x] %s -> 0x%02x\n", __func__,
         (UINT32)Bus, (UINT32)Device, (UINT32)Function, DevPathString,
         IrqLine));
 
@@ -1091,7 +1081,7 @@ PciAcpiInitialization (
       break;
     default:
       DEBUG ((DEBUG_ERROR, "%a: Unknown Host Bridge Device ID: 0x%04x\n",
-        __FUNCTION__, mHostBridgeDevId));
+        __func__, mHostBridgeDevId));
       ASSERT (FALSE);
       return;
   }
@@ -1111,119 +1101,6 @@ PciAcpiInitialization (
   Interrupt8259WriteMask(0xFFFF, 0x0000);
 }
 
-EFI_STATUS
-EFIAPI
-ConnectRecursivelyIfPciMassStorage (
-  IN EFI_HANDLE           Handle,
-  IN EFI_PCI_IO_PROTOCOL  *Instance,
-  IN PCI_TYPE00           *PciHeader
-  )
-{
-  EFI_STATUS                Status;
-  EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
-  CHAR16                    *DevPathStr;
-
-  //
-  // Recognize PCI Mass Storage
-  //
-  if (IS_CLASS1 (PciHeader, PCI_CLASS_MASS_STORAGE)) {
-    DevicePath = NULL;
-    Status = gBS->HandleProtocol (
-                    Handle,
-                    &gEfiDevicePathProtocolGuid,
-                    (VOID*)&DevicePath
-                    );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    //
-    // Print Device Path
-    //
-    DevPathStr = ConvertDevicePathToText (DevicePath, FALSE, FALSE);
-    if (DevPathStr != NULL) {
-      DEBUG(( DEBUG_INFO, "Found Mass Storage device: %s\n", DevPathStr));
-      FreePool(DevPathStr);
-    }
-
-    Status = gBS->ConnectController (Handle, NULL, NULL, TRUE);
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-   }
-
-  return EFI_SUCCESS;
-}
-
-
-/**
-  This notification function is invoked when the
-  EMU Variable FVB has been changed.
-
-  @param  Event                 The event that occurred
-  @param  Context               For EFI compatibility.  Not used.
-
-**/
-VOID
-EFIAPI
-EmuVariablesUpdatedCallback (
-  IN  EFI_EVENT Event,
-  IN  VOID      *Context
-  )
-{
-  DEBUG ((DEBUG_INFO, "%a called\n", __FUNCTION__));
-  UpdateNvVarsOnFileSystem ();
-}
-
-
-EFI_STATUS
-EFIAPI
-VisitingFileSystemInstance (
-  IN EFI_HANDLE  Handle,
-  IN VOID        *Instance,
-  IN VOID        *Context
-  )
-{
-  EFI_STATUS      Status;
-  STATIC BOOLEAN  ConnectedToFileSystem = FALSE;
-
-  if (ConnectedToFileSystem) {
-    return EFI_ALREADY_STARTED;
-  }
-
-  Status = ConnectNvVarsToFileSystem (Handle);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  ConnectedToFileSystem = TRUE;
-  mEmuVariableEvent =
-    EfiCreateProtocolNotifyEvent (
-      &gEfiDevicePathProtocolGuid,
-      TPL_CALLBACK,
-      EmuVariablesUpdatedCallback,
-      NULL,
-      &mEmuVariableEventReg
-      );
-  PcdSet64S (PcdEmuVariableEvent, (UINT64)(UINTN) mEmuVariableEvent);
-
-  return EFI_SUCCESS;
-}
-
-
-VOID
-PlatformBdsRestoreNvVarsFromHardDisk (
-  )
-{
-  VisitAllPciInstances (ConnectRecursivelyIfPciMassStorage);
-  VisitAllInstancesOfProtocol (
-    &gEfiSimpleFileSystemProtocolGuid,
-    VisitingFileSystemInstance,
-    NULL
-    );
-}
-
 /**
   Connect with predefined platform connect sequence.
 
@@ -1236,7 +1113,7 @@ PlatformBdsConnectSequence (
 {
   UINTN Index;
 
-  DEBUG ((DEBUG_INFO, "%a called\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a called\n", __func__));
 
   Index = 0;
 
@@ -1406,7 +1283,7 @@ BdsReadyToBootCallback (
   IN  VOID                      *Context
   )
 {
-   DEBUG ((DEBUG_INFO, "%a called\n", __FUNCTION__));
+   DEBUG ((DEBUG_INFO, "%a called\n", __func__));
 }
 
 
@@ -1436,7 +1313,7 @@ BdsSmmReadyToLockCallback (
     return;
   }
 
-  DEBUG ((DEBUG_INFO, "%a called\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a called\n", __func__));
 
   //
   // Dispatch the deferred 3rd party images.
@@ -1500,7 +1377,7 @@ BdsPciEnumCompleteCallback (
     PlatformConsole[MaxCount - 1].DevicePath = NULL;
   }
 
-  DEBUG ((DEBUG_INFO, "%a called\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a called\n", __func__));
 
   PlatformInitializeConsole (PlatformConsole);
 }
@@ -1524,7 +1401,7 @@ BdsBeforeConsoleAfterTrustedConsoleCallback (
   UINTN                         Index;
   EFI_STATUS                    Status;
 
-  DEBUG ((DEBUG_INFO, "%a called\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a called\n", __func__));
 
   NvBootOptions = EfiBootManagerGetLoadOptions (&NvBootOptionCount, LoadOptionTypeBoot);
   for (Index = 0; Index < NvBootOptionCount; Index++) {
@@ -1533,7 +1410,7 @@ BdsBeforeConsoleAfterTrustedConsoleCallback (
       DEBUG ((
         DEBUG_ERROR,
         "%a: removing Boot#%04x %r\n",
-        __FUNCTION__,
+        __func__,
         (UINT32) NvBootOptions[Index].OptionNumber,
         Status
         ));
@@ -1564,7 +1441,7 @@ BdsBeforeConsoleBeforeEndOfDxeGuidCallback (
   IN EFI_EVENT          Event,
   IN VOID               *Context
 ){
-  DEBUG ((DEBUG_INFO, "%a called\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a called\n", __func__));
 }
 
 /**
@@ -1582,18 +1459,7 @@ BdsAfterConsoleReadyBeforeBootOptionCallback (
 {
   EFI_BOOT_MODE                      BootMode;
 
-  DEBUG ((DEBUG_INFO, "%a called\n", __FUNCTION__));
-
-  if (PcdGetBool (PcdOvmfFlashVariablesEnable)) {
-    DEBUG ((DEBUG_INFO, "PlatformBdsPolicyBehavior: not restoring NvVars "
-      "from disk since flash variables appear to be supported.\n"));
-  } else {
-    //
-    // Try to restore variables from the hard disk early so
-    // they can be used for the other BDS connect operations.
-    //
-    PlatformBdsRestoreNvVarsFromHardDisk ();
-  }
+  DEBUG ((DEBUG_INFO, "%a called\n", __func__));
 
   //
   // Get current Boot Mode

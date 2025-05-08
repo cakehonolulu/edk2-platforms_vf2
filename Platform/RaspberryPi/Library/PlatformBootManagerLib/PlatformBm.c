@@ -17,6 +17,7 @@
 #include <Library/DevicePathLib.h>
 #include <Library/HobLib.h>
 #include <Library/PcdLib.h>
+#include <Library/TimerLib.h>
 #include <Library/UefiBootManagerLib.h>
 #include <Library/UefiLib.h>
 #include <Library/PrintLib.h>
@@ -25,6 +26,7 @@
 #include <Protocol/EsrtManagement.h>
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/LoadedImage.h>
+#include <Protocol/PlatformSpecificResetHandler.h>
 #include <Guid/BootDiscoveryPolicy.h>
 #include <Guid/EventGroup.h>
 #include <Guid/TtyTerm.h>
@@ -244,7 +246,7 @@ FilterAndProcess (
     //
     // This is not an error, just an informative condition.
     //
-    DEBUG ((DEBUG_VERBOSE, "%a: %g: %r\n", __FUNCTION__, ProtocolGuid,
+    DEBUG ((DEBUG_VERBOSE, "%a: %g: %r\n", __func__, ProtocolGuid,
       Status));
     return;
   }
@@ -295,25 +297,25 @@ AddOutput (
   DevicePath = DevicePathFromHandle (Handle);
   if (DevicePath == NULL) {
     DEBUG ((DEBUG_ERROR, "%a: %s: handle %p: device path not found\n",
-      __FUNCTION__, ReportText, Handle));
+      __func__, ReportText, Handle));
     return;
   }
 
   Status = EfiBootManagerUpdateConsoleVariable (ConOut, DevicePath, NULL);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: %s: adding to ConOut: %r\n", __FUNCTION__,
+    DEBUG ((DEBUG_ERROR, "%a: %s: adding to ConOut: %r\n", __func__,
       ReportText, Status));
     return;
   }
 
   Status = EfiBootManagerUpdateConsoleVariable (ErrOut, DevicePath, NULL);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a: %s: adding to ErrOut: %r\n", __FUNCTION__,
+    DEBUG ((DEBUG_ERROR, "%a: %s: adding to ErrOut: %r\n", __func__,
       ReportText, Status));
     return;
   }
 
-  DEBUG ((DEBUG_VERBOSE, "%a: %s: added to ConOut and ErrOut\n", __FUNCTION__,
+  DEBUG ((DEBUG_VERBOSE, "%a: %s: added to ConOut and ErrOut\n", __func__,
     ReportText));
 }
 
@@ -337,8 +339,8 @@ Connect (
                   NULL,   // RemainingDevicePath -- produce all children
                   FALSE   // Recursive
                   );
-  DEBUG ((EFI_ERROR (Status) ? EFI_D_ERROR : EFI_D_VERBOSE, "%a: %s: %r\n",
-    __FUNCTION__, ReportText, Status));
+  DEBUG ((EFI_ERROR (Status) ? DEBUG_ERROR : DEBUG_VERBOSE, "%a: %s: %r\n",
+    __func__, ReportText, Status));
 }
 
 STATIC
@@ -455,9 +457,9 @@ RemoveStaleBootOptions (
 
       DevicePathString = ConvertDevicePathToText(BootOptions[Index].FilePath, FALSE, FALSE);
       DEBUG ((
-        EFI_ERROR (Status) ? EFI_D_WARN : EFI_D_INFO,
+        EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
         "%a: removing stale Boot#%04x %s: %r\n",
-        __FUNCTION__,
+        __func__,
         (UINT32)BootOptions[Index].OptionNumber,
         DevicePathString == NULL ? L"<unavailable>" : DevicePathString,
         Status
@@ -527,6 +529,66 @@ SerialConPrint (
   }
 }
 
+/**
+  Disconnect everything.
+  Modified from the UEFI 2.3 spec (May 2009 version)
+
+**/
+STATIC
+VOID
+DisconnectAll (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       HandleCount;
+  EFI_HANDLE  *HandleBuffer;
+  UINTN       HandleIndex;
+
+  /*
+   * Retrieve the list of all handles from the handle database
+   */
+  Status = gBS->LocateHandleBuffer (
+                  AllHandles,
+                  NULL,
+                  NULL,
+                  &HandleCount,
+                  &HandleBuffer
+                  );
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  for (HandleIndex = 0; HandleIndex < HandleCount; HandleIndex++) {
+    gBS->DisconnectController (HandleBuffer[HandleIndex], NULL, NULL);
+  }
+
+  gBS->FreePool(HandleBuffer);
+}
+
+
+STATIC
+VOID
+EFIAPI
+OnResetNotify (
+  IN EFI_RESET_TYPE  ResetType,
+  IN EFI_STATUS      ResetStatus,
+  IN UINTN           DataSize,
+  IN VOID            *ResetData OPTIONAL
+  )
+{
+  UINT32 Delay;
+
+  DisconnectAll ();
+
+  Delay = PcdGet32 (PcdPlatformResetDelay);
+  if (Delay != 0) {
+    DEBUG ((DEBUG_INFO, "Platform will be reset in %d.%d seconds...\n",
+          Delay / 1000000, (Delay % 1000000) / 100000));
+    MicroSecondDelay (Delay);
+  }
+}
+
 //
 // BDS Platform Functions
 //
@@ -549,6 +611,7 @@ PlatformBootManagerBeforeConsole (
 {
   EFI_STATUS Status;
   ESRT_MANAGEMENT_PROTOCOL *EsrtManagement;
+  EDKII_PLATFORM_SPECIFIC_RESET_HANDLER_PROTOCOL *ResetNotify;
 
   if (GetBootModeHob () == BOOT_ON_FLASH_UPDATE) {
     DEBUG ((DEBUG_INFO, "ProcessCapsules Before EndOfDxe ......\n"));
@@ -581,6 +644,20 @@ PlatformBootManagerBeforeConsole (
   EfiBootManagerUpdateConsoleVariable (ConIn, (EFI_DEVICE_PATH_PROTOCOL*)&mSerialConsole, NULL);
   EfiBootManagerUpdateConsoleVariable (ConOut, (EFI_DEVICE_PATH_PROTOCOL*)&mSerialConsole, NULL);
   EfiBootManagerUpdateConsoleVariable (ErrOut, (EFI_DEVICE_PATH_PROTOCOL*)&mSerialConsole, NULL);
+
+  Status = gBS->LocateProtocol (
+                  &gEdkiiPlatformSpecificResetHandlerProtocolGuid,
+                  NULL,
+                  (VOID **)&ResetNotify
+                  );
+  ASSERT_EFI_ERROR (Status);
+  if (!EFI_ERROR (Status)) {
+    Status = ResetNotify->RegisterResetNotify (
+                            ResetNotify,
+                            OnResetNotify
+                            );
+    ASSERT_EFI_ERROR (Status);
+  }
 
   //
   // Signal EndOfDxe PI Event
@@ -617,6 +694,7 @@ BootDiscoveryPolicyHandler (
 {
   EFI_STATUS                       Status;
   UINT32                           DiscoveryPolicy;
+  UINT32                           DiscoveryPolicyOld;
   UINTN                            Size;
   EFI_BOOT_MANAGER_POLICY_PROTOCOL *BMPolicy;
   EFI_GUID                         *Class;
@@ -656,7 +734,7 @@ BootDiscoveryPolicyHandler (
       DEBUG ((
         DEBUG_INFO,
         "%a - Unexpected DiscoveryPolicy (0x%x). Run Minimal Discovery Policy\n",
-        __FUNCTION__,
+        __func__,
         DiscoveryPolicy
         ));
       return EFI_SUCCESS;
@@ -668,17 +746,38 @@ BootDiscoveryPolicyHandler (
                   (VOID **)&BMPolicy
                   );
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "%a - Failed to locate gEfiBootManagerPolicyProtocolGuid - %r\n", __FUNCTION__, Status));
+    DEBUG ((DEBUG_ERROR, "%a - Failed to locate gEfiBootManagerPolicyProtocolGuid - %r\n", __func__, Status));
     return Status;
   }
 
   Status = BMPolicy->ConnectDeviceClass (BMPolicy, Class);
   if (EFI_ERROR (Status)){
-    DEBUG ((DEBUG_ERROR, "%a - ConnectDeviceClass returns - %r\n", __FUNCTION__, Status));
+    DEBUG ((DEBUG_ERROR, "%a - ConnectDeviceClass returns - %r\n", __func__, Status));
     return Status;
   }
 
-  EfiBootManagerRefreshAllBootOption();
+  //
+  // Refresh Boot Options if Boot Discovery Policy has been changed
+  //
+  Size = sizeof (DiscoveryPolicyOld);
+  Status = gRT->GetVariable (
+                  BOOT_DISCOVERY_POLICY_OLD_VAR,
+                  &gBootDiscoveryPolicyMgrFormsetGuid,
+                  NULL,
+                  &Size,
+                  &DiscoveryPolicyOld
+                  );
+  if ((Status == EFI_NOT_FOUND) || (DiscoveryPolicyOld != DiscoveryPolicy)) {
+    EfiBootManagerRefreshAllBootOption();
+
+    Status = gRT->SetVariable (
+                    BOOT_DISCOVERY_POLICY_OLD_VAR,
+                    &gBootDiscoveryPolicyMgrFormsetGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                    sizeof (DiscoveryPolicyOld),
+                    &DiscoveryPolicy
+                    );
+  }
 
   return EFI_SUCCESS;
 }
@@ -827,7 +926,7 @@ PlatformBootManagerUnableToBoot (
   //
   if (NewBootOptionCount != OldBootOptionCount) {
     DEBUG ((DEBUG_WARN, "%a: rebooting after refreshing all boot options\n",
-      __FUNCTION__));
+      __func__));
     gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
   }
 

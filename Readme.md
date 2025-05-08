@@ -32,10 +32,30 @@ Many platforms require additional image processing beyond the EDK2 build.
 Any such steps should be documented (as a Readme.md), and any necessary helper
 scripts be contained, under said platform directory.
 
-Any contributions to this branch should be submitted via email to the
-edk2-devel mailing list with a subject prefix of `[platforms]`. See
-[Laszlo's excellent guide](https://github.com/tianocore/tianocore.github.io/wiki/Laszlo's-unkempt-git-guide-for-edk2-contributors-and-maintainers) for details
-on how to do this successfully.
+Any contributions to this repo should be submitted via GitHub Pull Request.
+
+For details of who owns code in certain parts of the repo, see the CODEOWNERS and
+REVIEWERS files. Look in CONTRIBUTORS.md to find out people's names and their
+email addresses.
+
+In general, you should not privately email the maintainer. You should
+email the edk2-devel list, and Cc the area maintainers and
+reviewers.
+
+If the maintainer wants to hand over the role to other people,
+they should create a PR on GitHub to update CODEOWNERS,
+REVIEWERS and CONTRIBUTORS.md with new maintainer, and the new maintainer
+should review the PR and approve it.
+
+EDK II Platforms
+----------------
+W: https://github.com/tianocore/tianocore.github.io/wiki/EDK-II
+L: https://edk2.groups.io/g/devel/
+T: git - https://github.com/tianocore/edk2-platforms.git
+
+Responsible Disclosure, Reporting Security Issues
+-------------------------------------------------
+W: https://github.com/tianocore/tianocore.github.io/wiki/Security
 
 # How to build (Linux Environment)
 
@@ -223,11 +243,6 @@ Processor/SoC vendor, rather than platform vendor.
 If there are any additional build steps beyond the generic ones listed above,
 they will be documented with the platform.
 
-## AMD
-* [Cello](Platform/LeMaker/CelloBoard)
-* [Overdrive](Platform/AMD/OverdriveBoard)
-* [Overdrive 1000](Platform/SoftIron/Overdrive1000Board)
-
 ## [Ampere](Platform/Ampere/Readme.md)
 * [Mt. Jade](Platform/Ampere/JadePkg)
 
@@ -238,13 +253,6 @@ they will be documented with the platform.
 ## BeagleBoard
 * [BeagleBoard](Platform/BeagleBoard/BeagleBoardPkg)
 
-## Hisilicon
-* [D03](Platform/Hisilicon/D03)
-* [D05](Platform/Hisilicon/D05)
-* [D06](Platform/Hisilicon/D06)
-* [HiKey](Platform/Hisilicon/HiKey)
-* [HiKey960](Platform/Hisilicon/HiKey960)
-
 ## Intel
 ### [Minimum Platforms](Platform/Intel/Readme.md)
 * [Kaby Lake](Platform/Intel/KabylakeOpenBoardPkg)
@@ -254,12 +262,11 @@ they will be documented with the platform.
 * [Comet Lake](Platform/Intel/CometlakeOpenBoardPkg)
 * [Tiger Lake](Platform/Intel/TigerlakeOpenBoardPkg)
 * [Whitley/Cedar Island](Platform/Intel/WhitleyOpenBoardPkg)
+* [Alder Lake](Platform/Intel/AlderlakeOpenBoardPkg)
 
 For more information, see the
 [EDK II Minimum Platform Specification](https://edk2-docs.gitbooks.io/edk-ii-minimum-platform-specification).
 ### Other Platforms
-##### Intel&reg; Quark SoC X1000 based platforms
-* [Galileo](Platform/Intel/QuarkPlatformPkg)
 ##### Minnowboard Max/Turbot based on Intel Valleyview2 SoC
 * [Minnowboard Max](Platform/Intel/Vlv2TbltDevicePkg)
 
@@ -282,18 +289,35 @@ For more information, see the
 * [Freedom U500 VC707 FPGA](Platform/SiFive/U5SeriesPkg/FreedomU500VC707Board)
 * [Freedom U540 HiFive Unleashed](Platform/SiFive/U5SeriesPkg/FreedomU540HiFiveUnleashedBoard)
 
-## Socionext
-* [SynQuacer](Platform/Socionext/DeveloperBox)
-
 ## NXP
 * [LS1043aRdb](Platform/NXP/LS1043aRdbPkg)
 
 ## Qemu
 * [SBSA](Platform/Qemu/SbsaQemu)
 
+# Retired platforms
+
+## AMD
+* [Cello](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/LeMaker/CelloBoard)
+* [Overdrive](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/AMD/OverdriveBoard)
+* [Overdrive 1000](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/SoftIron/Overdrive1000Board)
+
+## Hisilicon
+* [D03](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/Hisilicon/D03)
+* [D05](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/Hisilicon/D05)
+* [D06](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/Hisilicon/D06)
+* [HiKey](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/Hisilicon/HiKey)
+* [HiKey960](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/Hisilicon/HiKey960)
+
+## Intel
+* [Galileo](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/Intel/QuarkPlatformPkg)
+
+## Socionext
+* [SynQuacer](https://github.com/tianocore/edk2-platforms/tree/202502-before-platform-removals/Platform/Socionext/DeveloperBox)
+
 # Maintainers
 
-See [Maintainers.txt](Maintainers.txt).
+See [CONTRIBUTORS.md](CONTRIBUTORS.md), [CODEOWNERS](CODEOWNERS) and [REVIEWERS](REVIEWERS).
 
 # Submodules
 

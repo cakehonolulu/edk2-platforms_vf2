@@ -1,6 +1,6 @@
 #
 #  Copyright (c) 2021, NUVIA Inc. All rights reserved.
-#  Copyright (c) 2019, Linaro Limited. All rights reserved.
+#  Copyright (c) 2019-2024, Linaro Ltd. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -11,11 +11,15 @@
 #
 ################################################################################
 [Defines]
+!if $(ENABLE_RME)
+  PLATFORM_NAME                  = SbsaQemuRme
+!else
   PLATFORM_NAME                  = SbsaQemu
+!endif
   PLATFORM_GUID                  = feb0325c-b93d-4e47-8844-b832adeb9e0c
   PLATFORM_VERSION               = 0.1
   DSC_SPECIFICATION              = 0x00010005
-  OUTPUT_DIRECTORY               = Build/SbsaQemu
+  OUTPUT_DIRECTORY               = Build/$(PLATFORM_NAME)
   SUPPORTED_ARCHITECTURES        = AARCH64
   BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
   SKUID_IDENTIFIER               = DEFAULT
@@ -78,8 +82,8 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
   ShellLib|ShellPkg/Library/UefiShellLib/UefiShellLib.inf
   FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
+  ImagePropertiesRecordLib|MdeModulePkg/Library/ImagePropertiesRecordLib/ImagePropertiesRecordLib.inf
 
-  FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
   UefiRuntimeLib|MdePkg/Library/UefiRuntimeLib/UefiRuntimeLib.inf
   OrderedCollectionLib|MdePkg/Library/BaseOrderedCollectionRedBlackTreeLib/BaseOrderedCollectionRedBlackTreeLib.inf
 
@@ -95,29 +99,18 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   # use the accelerated BaseMemoryLibOptDxe by default, overrides for SEC/PEI below
   BaseMemoryLib|MdePkg/Library/BaseMemoryLibOptDxe/BaseMemoryLibOptDxe.inf
 
-  #
-  # It is not possible to prevent the ARM compiler from inserting calls to intrinsic functions.
-  # This library provides the instrinsic functions such a compiler may generate calls to.
-  #
-  NULL|ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
-
-  # Add support for GCC stack protector
-  NULL|MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
-
   # ARM Architectural Libraries
   CacheMaintenanceLib|ArmPkg/Library/ArmCacheMaintenanceLib/ArmCacheMaintenanceLib.inf
   DefaultExceptionHandlerLib|ArmPkg/Library/DefaultExceptionHandlerLib/DefaultExceptionHandlerLib.inf
   CpuExceptionHandlerLib|ArmPkg/Library/ArmExceptionLib/ArmExceptionLib.inf
-  ArmDisassemblerLib|ArmPkg/Library/ArmDisassemblerLib/ArmDisassemblerLib.inf
-  ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicLib.inf
-  ArmGicArchLib|ArmPkg/Library/ArmGicArchLib/ArmGicArchLib.inf
-  ArmSmcLib|ArmPkg/Library/ArmSmcLib/ArmSmcLib.inf
+  ArmSmcLib|MdePkg/Library/ArmSmcLib/ArmSmcLib.inf
   ArmHvcLib|ArmPkg/Library/ArmHvcLib/ArmHvcLib.inf
   ArmGenericTimerCounterLib|ArmPkg/Library/ArmGenericTimerVirtCounterLib/ArmGenericTimerVirtCounterLib.inf
 
   PlatformPeiLib|ArmPlatformPkg/PlatformPei/PlatformPeiLib.inf
   MemoryInitPeiLib|ArmPlatformPkg/MemoryInitPei/MemoryInitPeiLib.inf
-  ResetSystemLib|ArmPkg/Library/ArmSmcPsciResetSystemLib/ArmSmcPsciResetSystemLib.inf
+  ResetSystemLib|ArmPkg/Library/ArmPsciResetSystemLib/ArmPsciResetSystemLib.inf
+  ArmMonitorLib|ArmPkg/Library/ArmMonitorLib/ArmMonitorLib.inf
 
   # ARM PL031 RTC Driver
   RealTimeClockLib|ArmPlatformPkg/Library/PL031RealTimeClockLib/PL031RealTimeClockLib.inf
@@ -125,8 +118,8 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   # ARM PL011 UART Driver
   PL011UartLib|ArmPlatformPkg/Library/PL011UartLib/PL011UartLib.inf
 
-  FdtHelperLib|Silicon/Qemu/SbsaQemu/Library/FdtHelperLib/FdtHelperLib.inf
   OemMiscLib|Platform/Qemu/SbsaQemu/OemMiscLib/OemMiscLib.inf
+  HardwareInfoLib|Silicon/Qemu/SbsaQemu/Library/SbsaQemuHardwareInfoLib/SbsaQemuHardwareInfoLib.inf
 
   # Debug Support
   PeCoffExtraActionLib|ArmPkg/Library/DebugPeCoffExtraActionLib/DebugPeCoffExtraActionLib.inf
@@ -148,7 +141,7 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   #
   IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
   OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
-  RngLib|MdePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
+  RngLib|MdeModulePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
 
   #
@@ -171,6 +164,8 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
 
   ReportStatusCodeLib|MdePkg/Library/BaseReportStatusCodeLibNull/BaseReportStatusCodeLibNull.inf
+
+  AcpiLib|EmbeddedPkg/Library/AcpiLib/AcpiLib.inf
 
   ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
   ArmMmuLib|ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
@@ -292,9 +287,6 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
 [PcdsFeatureFlag.common]
   gEfiMdeModulePkgTokenSpaceGuid.PcdHiiOsRuntimeSupport|FALSE
 
-  # Use the Vector Table location in CpuDxe. We will not copy the Vector Table at PcdCpuVectorBaseAddress
-  gArmTokenSpaceGuid.PcdRelocateVectorTable|FALSE
-
   gEmbeddedTokenSpaceGuid.PcdPrePiProduceMemoryTypeInformationHob|TRUE
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdTurnOffUsbLegacySupport|TRUE
@@ -306,6 +298,9 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   #  It could be set FALSE to save size.
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutGopSupport|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutUgaSupport|FALSE
+
+  # Enable WriteCombine for FrameBuffer
+  gUefiOvmfPkgTokenSpaceGuid.PcdRemapFrameBufferWriteCombine|TRUE
 
 [PcdsFixedAtBuild.common]
   gEfiMdePkgTokenSpaceGuid.PcdMaximumUnicodeStringLength|1000000
@@ -392,13 +387,19 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   #
   gEfiMdeModulePkgTokenSpaceGuid.PcdSetNxForStack|TRUE
 
-  gArmTokenSpaceGuid.PcdVFPEnabled|1
-
   # System Memory Base -- fixed
-  gArmTokenSpaceGuid.PcdSystemMemoryBase|0x10000000000
+  !if $(ENABLE_RME)
+    #
+    # When RME is enabled the RMM is installed at 0x10000000000
+    # and the system base memory bumped by 1072MB.
+    #
+    gArmTokenSpaceGuid.PcdSystemMemoryBase|0x10043000000
+  !else
+    gArmTokenSpaceGuid.PcdSystemMemoryBase|0x10000000000
+  !endif
 
   # Space for 32 stacks
-  gArmPlatformTokenSpaceGuid.PcdCPUCoresStackBase|0x1000007c000
+  gArmPlatformTokenSpaceGuid.PcdCPUCoresStackBase|gArmTokenSpaceGuid.PcdSystemMemoryBase + 0x7c000
   gArmPlatformTokenSpaceGuid.PcdCPUCorePrimaryStackSize|0x4000
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize|0x2000
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxAuthVariableSize|0x2800
@@ -406,20 +407,9 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   # Size of the region used by UEFI in permanent memory (Reserved 64MB)
   gArmPlatformTokenSpaceGuid.PcdSystemMemoryUefiRegionSize|0x04000000
 
-  #
-  # ARM General Interrupt Controller
-  #
-  gArmTokenSpaceGuid.PcdGicDistributorBase|0x40060000
-  gArmTokenSpaceGuid.PcdGicRedistributorsBase|0x40080000
-
   ## Default Terminal Type
   ## 0-PCANSI, 1-VT100, 2-VT00+, 3-UTF8, 4-TTYTERM
   gEfiMdePkgTokenSpaceGuid.PcdDefaultTerminalType|4
-
-  #
-  # ARM Virtual Architectural Timer -- fetch frequency from QEMU (TCG) or KVM
-  #
-  gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|0
 
   gEfiNetworkPkgTokenSpaceGuid.PcdAllowHttpConnections|TRUE
 
@@ -432,27 +422,14 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   #
   gEmbeddedTokenSpaceGuid.PcdPrePiCpuIoSize|16
 
-  # Initial Device Tree Location
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdDeviceTreeBaseAddress|0x10000000000
-
-  # Non discoverable devices (AHCI,EHCI)
+  # Non discoverable devices (AHCI,XHCI)
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformAhciBase|0x60100000
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformAhciSize|0x00010000
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformEhciBase|0x60110000
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformEhciSize|0x00010000
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformXhciBase|0x60110000
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformXhciSize|0x00010000
 
   # PL011 - Serial Terminal
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x60000000
-
-  # Timer IRQs
-  # PPI #13
-  gArmTokenSpaceGuid.PcdArmArchTimerSecIntrNum|29
-  # PPI #14
-  gArmTokenSpaceGuid.PcdArmArchTimerIntrNum|30
-  # PPI #11
-  gArmTokenSpaceGuid.PcdArmArchTimerVirtIntrNum|27
-  # PPI #10
-  gArmTokenSpaceGuid.PcdArmArchTimerHypIntrNum|26
 
   ## PL031 RealTimeClock
   gArmPlatformTokenSpaceGuid.PcdPL031RtcBase|0x60010000
@@ -515,13 +492,19 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
 [PcdsDynamicDefault.common]
   gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut|3
 
-  # Core and Cluster Count
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdCoreCount|1
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdClusterCount|1
-
   # System Memory Size -- 128 MB initially, actual size will be fetched from DT
   # TODO as no DT will be used we should pass this by some other method
   gArmTokenSpaceGuid.PcdSystemMemorySize|0x08000000
+
+  #
+  # ARM General Interrupt Controller
+  #
+  gArmTokenSpaceGuid.PcdGicDistributorBase|0x40060000
+  gArmTokenSpaceGuid.PcdGicRedistributorsBase|0x40080000
+
+  # GIC ITS
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdGicItsBase|0
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdSmmuBase|0x60050000
 
   #
   # Set video resolution for boot options
@@ -536,7 +519,7 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   #
   # SMBIOS entry point version
   #
-  gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosVersion|0x0304
+  gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosVersion|0x0307
   gEfiMdeModulePkgTokenSpaceGuid.PcdSmbiosDocRev|0x0
 
   gArmTokenSpaceGuid.PcdSystemBiosRelease|0x0100
@@ -557,6 +540,9 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdChassisManufacturer|L"QEMU"
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdChassisAssetTag|L"AT0000"
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdChassisSKU|L"SK0000"
+
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformVersionMajor|0x0
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformVersionMinor|0x0
 
 ################################################################################
 #
@@ -601,7 +587,7 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   #
   # PEI Phase modules
   #
-  ArmPlatformPkg/PrePeiCore/PrePeiCoreUniCore.inf
+  ArmPlatformPkg/Sec/Sec.inf
   MdeModulePkg/Core/Pei/PeiMain.inf
   MdeModulePkg/Universal/PCD/Pei/Pcd.inf {
     <LibraryClasses>
@@ -661,10 +647,17 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
 
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 
-  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
+  ArmPkg/Drivers/ArmGicDxe/ArmGicV3Dxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
   OvmfPkg/VirtNorFlashDxe/VirtNorFlashDxe.inf
   MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
+  Silicon/Qemu/SbsaQemu/Drivers/SbsaQemuHighMemDxe/SbsaQemuHighMemDxe.inf
+  SecurityPkg/RandomNumberGenerator/RngDxe/RngDxe.inf {
+    <LibraryClasses>
+      RngLib|MdePkg/Library/BaseRngLib/BaseRngLib.inf
+      ArmTrngLib|ArmPkg/Library/ArmTrngLib/ArmTrngLib.inf
+      ArmMonitorLib|ArmPkg/Library/ArmMonitorLib/ArmMonitorLib.inf
+  }
 
   #
   # FAT filesystem + GPT/MBR partitioning
@@ -705,7 +698,7 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf
 
   # IDE/AHCI Support
-  OvmfPkg/SataControllerDxe/SataControllerDxe.inf
+  MdeModulePkg/Bus/Pci/SataControllerDxe/SataControllerDxe.inf
   MdeModulePkg/Bus/Ata/AtaAtapiPassThru/AtaAtapiPassThru.inf
   MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
 
@@ -720,7 +713,6 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   #
   ArmPkg/Universal/Smbios/ProcessorSubClassDxe/ProcessorSubClassDxe.inf
   ArmPkg/Universal/Smbios/SmbiosMiscDxe/SmbiosMiscDxe.inf
-  EmbeddedPkg/Library/FdtLib/FdtLib.inf
   MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
   Silicon/Qemu/SbsaQemu/Drivers/SbsaQemuSmbiosDxe/SbsaQemuSmbiosDxe.inf
 
@@ -730,6 +722,12 @@ DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
   ArmPkg/Drivers/ArmPciCpuIo2Dxe/ArmPciCpuIo2Dxe.inf
   MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
   MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
+
+  #
+  # NVME support
+  #
+
+  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
 
   #
   # Video support (VGA)

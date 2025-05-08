@@ -106,7 +106,7 @@ BdsSignalEventBeforeConsoleAfterTrustedConsole (
   EFI_STATUS    Status;
   EFI_EVENT     BdsConsoleEvent;
 
-  DEBUG ((DEBUG_INFO, "%a \n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a \n", __func__));
 
   Status = CreateBdsEvent (
              TPL_CALLBACK,
@@ -137,7 +137,7 @@ BdsSignalEventBeforeConsoleBeforeEndOfDxe (
   EFI_STATUS    Status;
   EFI_EVENT     BdsConsoleEvent;
 
-  DEBUG ((DEBUG_INFO, "%a \n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a \n", __func__));
 
   Status = CreateBdsEvent (
              TPL_CALLBACK,
@@ -167,7 +167,7 @@ BdsSignalEventAfterConsoleReadyBeforeBootOption (
   EFI_STATUS    Status;
   EFI_EVENT     BdsConsoleEvent;
 
-  DEBUG ((DEBUG_INFO, "%a \n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a \n", __func__));
 
   Status = CreateBdsEvent (
              TPL_CALLBACK,
@@ -196,7 +196,7 @@ PlatformBootManagerBeforeConsole (
   )
 {
 
-  DEBUG ((EFI_D_INFO, "PlatformBootManagerBeforeConsole\n"));
+  DEBUG ((DEBUG_INFO, "PlatformBootManagerBeforeConsole\n"));
 
   //
   // Trusted console can be added in a PciEnumComplete callback
@@ -242,7 +242,7 @@ PlatformBootManagerAfterConsole (
   VOID
   )
 {
-  DEBUG ((EFI_D_INFO, "PlatformBootManagerAfterConsole\n"));
+  DEBUG ((DEBUG_INFO, "PlatformBootManagerAfterConsole\n"));
 
   BdsSignalEventAfterConsoleReadyBeforeBootOption ();
 }

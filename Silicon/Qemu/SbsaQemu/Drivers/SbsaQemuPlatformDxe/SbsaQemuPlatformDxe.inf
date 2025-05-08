@@ -20,8 +20,7 @@
   SbsaQemuPlatformDxe.c
 
 [Packages]
-  ArmVirtPkg/ArmVirtPkg.dec
-  EmbeddedPkg/EmbeddedPkg.dec
+  ArmPkg/ArmPkg.dec
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
   Silicon/Qemu/SbsaQemu/SbsaQemu.dec
@@ -29,12 +28,23 @@
 [LibraryClasses]
   PcdLib
   DebugLib
+  HardwareInfoLib
   NonDiscoverableDeviceRegistrationLib
   UefiDriverEntryPoint
 
 [Pcd]
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformAhciBase
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformAhciSize
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformXhciBase
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformXhciSize
+
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformVersionMajor
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformVersionMinor
+
+  gArmTokenSpaceGuid.PcdGicDistributorBase
+  gArmTokenSpaceGuid.PcdGicRedistributorsBase
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdGicItsBase
+
 
 [Depex]
   TRUE

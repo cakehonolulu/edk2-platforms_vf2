@@ -19,7 +19,6 @@
   Dbg2.aslc
   Dsdt.asl
   Fadt.aslc
-  Gtdt.aslc
   Mcfg.aslc
   Spcr.aslc
 
@@ -32,9 +31,6 @@
   Silicon/Qemu/SbsaQemu/SbsaQemu.dec
 
 [FixedPcd]
-  gArmTokenSpaceGuid.PcdGicDistributorBase
-  gArmTokenSpaceGuid.PcdGicRedistributorsBase
-
   gArmTokenSpaceGuid.PcdArmArchTimerSecIntrNum
   gArmTokenSpaceGuid.PcdArmArchTimerIntrNum
   gArmTokenSpaceGuid.PcdArmArchTimerHypIntrNum
@@ -72,5 +68,10 @@
 
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformAhciBase
   gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformAhciSize
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformEhciBase
-  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformEhciSize
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformXhciBase
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdPlatformXhciSize
+
+[Pcd]
+  gArmTokenSpaceGuid.PcdGicDistributorBase
+  gArmTokenSpaceGuid.PcdGicRedistributorsBase
+  gArmVirtSbsaQemuPlatformTokenSpaceGuid.PcdGicItsBase
