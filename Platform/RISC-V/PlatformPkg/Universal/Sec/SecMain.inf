@@ -53,7 +53,7 @@
   RiscVCpuLib
   RiscVOpensbiLib
   RiscVOpensbiPlatformLib
-  RiscVSbiLib
+  RiscVEdk2SbiLib
   StackCheckLib
 
 [FixedPcd]
