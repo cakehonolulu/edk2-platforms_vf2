@@ -545,7 +545,7 @@ PrepareDmaData (
 
   Cnt = (Length + DWEMMC_DMA_BUF_SIZE - 1) / DWEMMC_DMA_BUF_SIZE;
   Blks = (Length + DWEMMC_BLOCK_SIZE - 1) / DWEMMC_BLOCK_SIZE;
-  //Length = DWEMMC_BLOCK_SIZE * Blks;
+  Length = DWEMMC_BLOCK_SIZE * Blks;
 
   for (Idx = 0; Idx < Cnt; Idx++) {
     (IdmacDesc + Idx)->Des0 = DWEMMC_IDMAC_DES0_OWN | DWEMMC_IDMAC_DES0_CH |
@@ -566,8 +566,9 @@ PrepareDmaData (
   (IdmacDesc + LastIdx)->Des1 = DWEMMC_IDMAC_DES1_BS1(Length -
                                                       (LastIdx * DWEMMC_DMA_BUF_SIZE));
   /* Set the Next field of Last Descriptor */
-  //(IdmacDesc + LastIdx)->Des3 = 0;
+  (IdmacDesc + LastIdx)->Des3 = 0;
   MmioWrite32 (DWEMMC_DBADDR, (UINT32)((UINTN)IdmacDesc));
+
   return EFI_SUCCESS;
 }
 
@@ -579,14 +580,13 @@ StartDma (
   UINT32 Data;
 
   Data = MmioRead32 (DWEMMC_CTRL);
-  Data |=  DWEMMC_CTRL_DMA_EN | DWEMMC_CTRL_IDMAC_EN;
+  Data |= DWEMMC_CTRL_INT_EN | DWEMMC_CTRL_DMA_EN | DWEMMC_CTRL_IDMAC_EN;
   MmioWrite32 (DWEMMC_CTRL, Data);
   Data = MmioRead32 (DWEMMC_BMOD);
   Data |= DWEMMC_IDMAC_ENABLE | DWEMMC_IDMAC_FB;
   MmioWrite32 (DWEMMC_BMOD, Data);
 
-  MmioWrite32 (DWEMMC_BLKSIZ, 
-  	(Length < DWEMMC_BLOCK_SIZE) ? Length : DWEMMC_BLOCK_SIZE);
+  MmioWrite32 (DWEMMC_BLKSIZ, DWEMMC_BLOCK_SIZE);
   MmioWrite32 (DWEMMC_BYTCNT, Length);
 }
 
@@ -728,15 +728,14 @@ DwEmmcSetIos (
     switch (TimingMode) {
     case EMMCHS52DDR1V2:
     case EMMCHS52DDR1V8:
-      //Data |= 1 << 16;
-      //break;
-      return EFI_UNSUPPORTED;
+      Data |= 1 << 16;
+      break;
     case EMMCHS52:
     case EMMCHS26:
       Data &= ~(1 << 16);
       break;
     default:
-      break;
+      return EFI_UNSUPPORTED;
     }
     MmioWrite32 (DWEMMC_UHSREG, Data);
   }

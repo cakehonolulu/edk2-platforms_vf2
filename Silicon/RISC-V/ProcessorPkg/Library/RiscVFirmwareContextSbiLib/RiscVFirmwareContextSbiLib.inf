@@ -30,5 +30,5 @@
 [LibraryClasses]
   DebugLib
   RiscVCpuLib
-  RiscVEdk2SbiLib
+  RiscVSbiLib
 

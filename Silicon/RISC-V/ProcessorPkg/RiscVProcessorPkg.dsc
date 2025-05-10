@@ -42,7 +42,7 @@
 [LibraryClasses.common]
   CpuExceptionHandlerLib|Silicon/RISC-V/ProcessorPkg/Library/RiscVExceptionLib/CpuExceptionHandlerDxeLib.inf
   RiscVCpuLib|Silicon/RISC-V/ProcessorPkg/Library/RiscVCpuLib/RiscVCpuLib.inf
-  RiscVEdk2SbiLib|Silicon/RISC-V/ProcessorPkg/Library/RiscVEdk2SbiLib/RiscVEdk2SbiLib.inf
+  RiscVSbiLib|MdePkg/Library/BaseRiscVSbiLib/BaseRiscVSbiLib.inf
   RiscVOpensbiLib|Silicon/RISC-V/ProcessorPkg/Library/RiscVOpensbiLib/RiscVOpensbiLib.inf
   MachineModeTimerLib|Silicon/RISC-V/ProcessorPkg/Library/RiscVReadMachineModeTimer/MachineModeTimerLib/MachineModeTimerLib.inf
   #MachineModeTimerLib|Silicon/RISC-V/ProcessorPkg/Library/RiscVReadMachineModeTimer/EmulatedMachineModeTimerLib/EmulatedMachineModeTimerLib.inf
@@ -101,7 +101,7 @@
   Silicon/RISC-V/ProcessorPkg/Library/RiscVOpensbiLib/RiscVOpensbiLib.inf
   Silicon/RISC-V/ProcessorPkg/Library/RiscVPlatformTimerLibNull/RiscVPlatformTimerLib.inf
   Silicon/RISC-V/ProcessorPkg/Library/RiscVCpuLib/RiscVCpuLib.inf
-  Silicon/RISC-V/ProcessorPkg/Library/RiscVEdk2SbiLib/RiscVEdk2SbiLib.inf
+  MdePkg/Library/BaseRiscVSbiLib/BaseRiscVSbiLib.inf
   Silicon/RISC-V/ProcessorPkg/Library/RiscVTimerLib/BaseRiscVTimerLib.inf
   Silicon/RISC-V/ProcessorPkg/Universal/CpuDxe/CpuDxe.inf
   Silicon/RISC-V/ProcessorPkg/Universal/SmbiosDxe/RiscVSmbiosDxe.inf

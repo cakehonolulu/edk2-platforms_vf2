@@ -23,7 +23,7 @@
 
 [LibraryClasses]
   RiscVCpuLib|Include/Library/RiscVCpuLib.h
-  RiscVEdk2SbiLib|Include/Library/RiscVEdk2SbiLib.h
+  RiscVSbiLib|MdePkg/Include/Library/BaseRiscVSbiLib.h
   RiscVFirmwareContextLib|Include/Library/RiscVFirmwareContextLib.h
   RiscVPlatformTimerLib|Include/Library/RiscVPlatformTimerLib.h
   MachineModeTimerLib|Include/Library/MachineModeTimerLib.h

@@ -8,12 +8,13 @@
 **/
 
 #include "Timer.h"
-#include <Library/RiscVEdk2SbiLib.h>
+#include <Library/BaseRiscVSbiLib.h>
+#include <U5Clint.h>
 #include <sbi/riscv_asm.h>
+#include <sbi/riscv_atomic.h>
 #include <sbi/riscv_encoding.h>
 #include <sbi/riscv_io.h>
-#include <sbi/riscv_atomic.h>
-#include <U5Clint.h>
+
 
 BOOLEAN TimerHandlerReentry = FALSE;
 

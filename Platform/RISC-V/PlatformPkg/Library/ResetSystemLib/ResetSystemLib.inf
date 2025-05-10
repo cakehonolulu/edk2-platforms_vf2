@@ -31,4 +31,4 @@
 
 [LibraryClasses]
   DebugLib
-  RiscVEdk2SbiLib
+  RiscVSbiLib

@@ -32,7 +32,7 @@
   IoLib
   MachineModeTimerLib
   RiscVCpuLib
-  RiscVEdk2SbiLib
+  RiscVSbiLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
 

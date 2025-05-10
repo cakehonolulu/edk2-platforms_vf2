@@ -10,7 +10,7 @@
 #include <PiPei.h>
 #include <Library/DebugLib.h>
 #include <Library/RiscVCpuLib.h>
-#include <Library/RiscVEdk2SbiLib.h>
+#include <Library/RiscV2SbiLib.h>
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_platform.h>
 

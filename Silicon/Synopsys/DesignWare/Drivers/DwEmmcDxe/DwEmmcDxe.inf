@@ -30,6 +30,7 @@
   Silicon/Synopsys/DesignWare/DesignWare.dec
 
 [LibraryClasses]
+  ArmLib
   BaseLib
   BaseMemoryLib
   CacheMaintenanceLib
