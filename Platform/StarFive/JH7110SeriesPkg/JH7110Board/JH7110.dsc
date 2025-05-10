@@ -42,7 +42,6 @@
   DEFINE NETWORK_ISCSI_ENABLE     = FALSE
 
 [BuildOptions]
-  GCC:RELEASE_*_*_CC_FLAGS       = -DMDEPKG_NDEBUG
 !ifdef $(SOURCE_DEBUG_ENABLE)
   GCC:*_*_RISCV64_GENFW_FLAGS    = --keepexceptiontable
 !endif
@@ -98,7 +97,9 @@
   CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
   SortLib|MdeModulePkg/Library/BaseSortLib/BaseSortLib.inf
   ShellLib|ShellPkg/Library/UefiShellLib/UefiShellLib.inf
+  ShellCEntryLib|ShellPkg/Library/UefiShellCEntryLib/UefiShellCEntryLib.inf
   UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
+  FileExplorerLib|MdeModulePkg/Library/FileExplorerLib/FileExplorerLib.inf
   FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
   VariableFlashInfoLib|MdeModulePkg/Library/BaseVariableFlashInfoLib/BaseVariableFlashInfoLib.inf
   VariablePolicyHelperLib|MdeModulePkg/Library/VariablePolicyHelperLib/VariablePolicyHelperLib.inf
@@ -160,6 +161,7 @@
 
   # Flattened Device Tree (FDT) access library
   FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
+  SerialPortLib|Platform/StarFive/JH7110SeriesPkg/Library/SerialIoLib/SerialIoLib.inf
 
 [LibraryClasses.common.SEC]
 !ifdef $(DEBUG_ON_SERIAL_PORT)
@@ -235,6 +237,7 @@
   RiscVCoreplexInfoLib|Platform/StarFive/JH7110SeriesPkg/Library/PeiCoreInfoHobLib/PeiCoreInfoHobLib.inf
 
 [LibraryClasses.common.DXE_CORE]
+  SerialPortLib|Platform/StarFive/JH7110SeriesPkg/Library/SerialIoLib/SerialIoLib.inf
   TimerLib|Silicon/RISC-V/ProcessorPkg/Library/RiscVTimerLib/BaseRiscVTimerLib.inf
   HobLib|MdePkg/Library/DxeCoreHobLib/DxeCoreHobLib.inf
   DxeCoreEntryPoint|MdePkg/Library/DxeCoreEntryPoint/DxeCoreEntryPoint.inf
@@ -324,6 +327,7 @@
 #
 ################################################################################
 [PcdsFeatureFlag]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdHiiOsRuntimeSupport|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSupportUefiDecompress|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutGopSupport|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutUgaSupport|FALSE
@@ -362,7 +366,15 @@
   #
   # F2 for UI APP
   #
-  gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }
+
+  # Shell?
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x46,0x2C,0xAA,0x21,0x76,0x14,0x45,0x03,0x83,0x6E,0x8A,0xB6,0xF4,0x66,0x23,0x31 }
+
+  # Firmware
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x21,0xaa,0x2c,0x46,0x14,0x76,0x03,0x45,0x83,0x6e,0x8a,0xb6,0xf4,0x66,0x23,0x31 }
+
+  # Bootmgr
+  #gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0xEE,0xC2,0x5B,0xDC,0x67,0xF2,0x4D,0x95,0xF8,0xD5,0xF8,0x1B,0x20,0x39,0xD1,0x1D }
 
  #
   # DW MMC/SD card controller
@@ -449,6 +461,8 @@
   #
   Platform/RISC-V/PlatformPkg/Universal/Sec/SecMain.inf
 
+  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf
+
   #
   # PEI Phase modules
   #
@@ -501,10 +515,7 @@
   UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
   MdeModulePkg/Universal/Metronome/Metronome.inf
   MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
-  MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf {
-    <LibraryClasses>
-      ResetSystemLib|MdeModulePkg/Library/BaseResetSystemLibNull/BaseResetSystemLibNull.inf
-  }
+
   EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
 
   #
@@ -518,7 +529,10 @@
   #
   Silicon/RISC-V/ProcessorPkg/Universal/CpuDxe/CpuDxe.inf
   Silicon/RISC-V/ProcessorPkg/Universal/SmbiosDxe/RiscVSmbiosDxe.inf
-  MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
+  MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf {
+    <LibraryClasses>
+      ResetSystemLib|Platform/RISC-V/PlatformPkg/Library/ResetSystemLib/ResetSystemLib.inf
+  }
 
   MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
   MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf {
@@ -532,11 +546,10 @@
   MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
   MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe.inf
 
-# No graphic console supported yet.
-#  MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf {
-#    <LibraryClasses>
-#      PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
-#  }
+  MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf {
+    <LibraryClasses>
+      PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
+  }
   MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
   MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf {
     <LibraryClasses>
@@ -665,5 +678,9 @@
   SecurityPkg/VariableAuthenticated/SecureBootConfigDxe/SecureBootConfigDxe.inf
 !endif
 
-  MdeModulePkg/Application/UiApp/UiApp.inf
-
+  MdeModulePkg/Application/UiApp/UiApp.inf {
+    <LibraryClasses>
+      NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
+      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
+  }

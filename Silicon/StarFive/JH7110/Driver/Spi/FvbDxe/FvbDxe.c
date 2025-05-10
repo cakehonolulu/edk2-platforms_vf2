@@ -1009,7 +1009,7 @@ FvbConfigureFlashInstance (
 {
   EFI_STATUS Status;
   UINTN     DataOffset;
-  UINTN     VariableSize, FtwWorkingSize, FtwSpareSize, MemorySize;
+  UINTN     VariableSize, FtwWorkingSize, FtwSpareSize, MemorySize = 0;
 
   // Locate SPI protocols
   Status = gBS->LocateProtocol (&gJH7110SpiFlashProtocolGuid,
@@ -1131,7 +1131,7 @@ FvbEntryPoint (
   )
 {
   EFI_STATUS  Status;
-  UINTN       RuntimeMmioRegionSize;
+  UINTN       RuntimeMmioRegionSize = 0;
   UINTN       RegionBaseAddress;
 
   //

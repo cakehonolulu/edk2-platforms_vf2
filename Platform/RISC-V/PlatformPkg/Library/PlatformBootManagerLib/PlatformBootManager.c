@@ -144,6 +144,37 @@ PlatformRegisterFvBootOption (
   }
 }
 
+VOID PlatformRegisterOptionsAndKeys(VOID)
+{
+    EFI_STATUS Status;
+    EFI_INPUT_KEY Enter;
+    EFI_INPUT_KEY F2;
+    EFI_INPUT_KEY Esc;
+    EFI_BOOT_MANAGER_LOAD_OPTION BootOption;
+
+    //
+    // Register ENTER as CONTINUE key
+    //
+    Enter.ScanCode = SCAN_NULL;
+    Enter.UnicodeChar = CHAR_CARRIAGE_RETURN;
+    Status = EfiBootManagerRegisterContinueKeyOption(0, &Enter, NULL);
+    ASSERT_EFI_ERROR(Status);
+
+    //
+    // Map F2 to Boot Manager Menu
+    //
+    F2.ScanCode = SCAN_F2;
+    F2.UnicodeChar = CHAR_NULL;
+    Esc.ScanCode = SCAN_ESC;
+    Esc.UnicodeChar = CHAR_NULL;
+    Status = EfiBootManagerGetBootManagerMenu(&BootOption);
+    ASSERT_EFI_ERROR(Status);
+    Status = EfiBootManagerAddKeyOptionVariable(NULL, (UINT16)BootOption.OptionNumber, 0, &F2, NULL);
+    ASSERT(Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
+    Status = EfiBootManagerAddKeyOptionVariable(NULL, (UINT16)BootOption.OptionNumber, 0, &Esc, NULL);
+    ASSERT(Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
+}
+
 /**
   Do the platform specific action before the console is connected.
 
@@ -160,9 +191,8 @@ PlatformBootManagerBeforeConsole (
 {
   UINTN                         Index;
   EFI_STATUS                    Status;
-  EFI_INPUT_KEY                 Enter;
-  EFI_INPUT_KEY                 F2;
-  EFI_BOOT_MANAGER_LOAD_OPTION  BootOption;
+
+  DEBUG((DEBUG_INFO, "PlatformBootManagerBeforeConsole\n"));
 
   //
   // Signal EndOfDxe PI Event
@@ -190,23 +220,81 @@ PlatformBootManagerBeforeConsole (
     }
   }
 
-  //
-  // Register ENTER as CONTINUE key
-  //
-  Enter.ScanCode    = SCAN_NULL;
-  Enter.UnicodeChar = CHAR_CARRIAGE_RETURN;
-  EfiBootManagerRegisterContinueKeyOption (0, &Enter, NULL);
-  //
-  // Map F2 to Boot Manager Menu
-  //
-  F2.ScanCode    = SCAN_F2;
-  F2.UnicodeChar = CHAR_NULL;
-  EfiBootManagerGetBootManagerMenu (&BootOption);
-  EfiBootManagerAddKeyOptionVariable (NULL, (UINT16)BootOption.OptionNumber, 0, &F2, NULL);
-  //
-  // Register UEFI Shell
-  //
-  PlatformRegisterFvBootOption (&mUefiShellFileGuid, L"UEFI Shell", LOAD_OPTION_ACTIVE);
+  PlatformRegisterOptionsAndKeys();
+
+  // 462CAA21-7614-4503-836E-8AB6F4662331
+  EFI_GUID UiAppGuid    = {0x462CAA21, 0x7614, 0x4503, {0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31}};
+
+  // EEC25BDC-67F2-4D95-B1D5-F81B2039D11D
+  EFI_GUID BootMgrGuid  = {0xEEC25BDC, 0x67F2, 0x4D95, {0xF8, 0xD5, 0xF8, 0x1B, 0x20, 0x39, 0xD1, 0x1D}};
+
+  PlatformRegisterFvBootOption(&BootMgrGuid, L"UEFI BootManagerMenuApp", LOAD_OPTION_ACTIVE);
+
+  PlatformRegisterFvBootOption(&UiAppGuid, L"Firmware Setup", LOAD_OPTION_ACTIVE);
+}
+
+/**
+  The function is called when no boot option could be launched,
+  including platform recovery options and options pointing to applications
+  built into firmware volumes.
+
+  If this function returns, BDS attempts to enter an infinite loop.
+**/
+VOID EFIAPI PlatformBootManagerUnableToBoot(VOID)
+{
+    EFI_STATUS Status;
+    EFI_INPUT_KEY Key;
+    EFI_BOOT_MANAGER_LOAD_OPTION BootManagerMenu;
+    UINTN Index;
+
+    /*if (FeaturePcdGet(PcdBootRestrictToFirmware))
+    {
+        AsciiPrint("%a: No bootable option was found.\n", gEfiCallerBaseName);
+        CpuDeadLoop();
+    }*/
+
+    //
+    // BootManagerMenu doesn't contain the correct information when return status
+    // is EFI_NOT_FOUND.
+    //
+    Status = EfiBootManagerGetBootManagerMenu(&BootManagerMenu);
+    if (EFI_ERROR(Status))
+    {
+        return;
+    }
+
+    //
+    // Normally BdsDxe does not print anything to the system console, but this is
+    // a last resort -- the end-user will likely not see any DEBUG messages
+    // logged in this situation.
+    //
+    // AsciiPrint() will NULL-check gST->ConOut internally. We check gST->ConIn
+    // here to see if it makes sense to request and wait for a keypress.
+    //
+    if (gST->ConIn != NULL)
+    {
+        AsciiPrint("%a: No bootable option or device was found.\n"
+                   "%a: Press any key to enter the Boot Manager Menu.\n",
+                   gEfiCallerBaseName, gEfiCallerBaseName);
+        Status = gBS->WaitForEvent(1, &gST->ConIn->WaitForKey, &Index);
+        ASSERT_EFI_ERROR(Status);
+        ASSERT(Index == 0);
+
+        //
+        // Drain any queued keys.
+        //
+        while (!EFI_ERROR(gST->ConIn->ReadKeyStroke(gST->ConIn, &Key)))
+        {
+            //
+            // just throw away Key
+            //
+        }
+    }
+
+    for (;;)
+    {
+        EfiBootManagerBoot(&BootManagerMenu);
+    }
 }
 
 /**
@@ -228,30 +316,19 @@ PlatformBootManagerAfterConsole (
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Black;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  White;
 
+  DEBUG((DEBUG_INFO, "PlatformBootManagerAfterConsole\n"));
+
+  //
+  // Register UEFI Shell
+  //
+  PlatformRegisterFvBootOption(&mUefiShellFileGuid, L"EFI Internal Shell",
+                               LOAD_OPTION_ACTIVE | LOAD_OPTION_CATEGORY_APP);
+
   Black.Blue = Black.Green = Black.Red = Black.Reserved = 0;
   White.Blue = White.Green = White.Red = White.Reserved = 0xFF;
 
-  EfiBootManagerConnectAll ();
-  EfiBootManagerRefreshAllBootOption ();
+  EfiBootManagerConnectAll();
+  EfiBootManagerRefreshAllBootOption();
 
-  PlatformBootManagerDiagnostics (QUICK, TRUE);
-
-  PrintXY (10, 10, &White, &Black, L"F2    to enter Boot Manager Menu.                                            ");
-  PrintXY (10, 30, &White, &Black, L"Enter to boot directly.");
-}
-
-/**
-  The function is called when no boot option could be launched,
-  including platform recovery options and options pointing to applications
-  built into firmware volumes.
-
-  If this function returns, BDS attempts to enter an infinite loop.
-**/
-VOID
-EFIAPI
-PlatformBootManagerUnableToBoot (
-  VOID
-  )
-{
-  return;
+  PlatformBootManagerDiagnostics(QUICK, TRUE);
 }
