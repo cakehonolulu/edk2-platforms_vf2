@@ -304,7 +304,7 @@ RiscVSmbiosBuilderEntry (
   EFI_STATUS                       Status;
   EFI_HOB_GUID_TYPE                *GuidHob;
   RISC_V_PROCESSOR_TYPE4_HOB_DATA  *Type4HobData;
-  SMBIOS_HANDLE                    Processor = 0;
+  SMBIOS_HANDLE                    Processor;
 
   DEBUG ((DEBUG_INFO, "%a: entry\n", __func__));
 
